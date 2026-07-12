@@ -2,7 +2,7 @@
 
 A single-file operations/status board for running a youth camp. It keeps the
 familiar military TOC (Tactical Operations Center) look — DTG/Zulu clock,
-PERSTAT, LOGSTAT, SITREP export — but adds plain-English helper text so any
+PERSTAT, SITREP export — but adds plain-English helper text so any
 volunteer, military or not, can pick it up quickly.
 
 Everything lives in one file, **`index.html`**. There is nothing to install and
@@ -22,16 +22,11 @@ it works, online or offline.
   Accountability tile (present ÷ accountable, with absentees excluded).
 - **PERSTAT** — personnel counts by element (assigned vs. present). Used for
   Accountability only when the roster is empty, so the old workflow still works.
-- **LOGSTAT** — supply readiness (Green / Amber / Red / Black).
 - **Daily Schedule** *(new)* — the day's activities and timing. Mark one item
   **Now** to highlight the current event.
-- **Incident Intake** — generate a QR code to your incident **Google Form** and
-  auto-import responses from a published **Google Sheet** (CSV), or load a CSV
-  file by hand.
-- **Incident Report Log** — one row per report.
+- **Incident Report Log** — one row per report; log incidents by hand.
 - **Copy SITREP** — one-tap plain-text situation report (accountability, who's
-  not signed in, PERSTAT, LOGSTAT, schedule, incidents) ready to paste into an
-  email or chat.
+  not signed in, PERSTAT, schedule, incidents) ready to paste into an email or chat.
 - **Kiosk mode** — full-screen with screen wake-lock for a wall display.
 
 ## Saving & moving the board between computers
@@ -60,17 +55,14 @@ can be added as a follow-up.
 2. Edit the **camp name** in the header.
 3. In the **Weather** panel, type your camp's `lat, lon` and press *Set* (or
    press *Locate* to use the device's location).
-4. In **Incident Intake**, paste your own Google Form link and press *Show QR*.
-   To auto-import responses, publish your responses sheet to the web as CSV and
-   paste that link, then *Connect* (optionally tick *Auto-import every 2 min*).
-5. Add your campers/staff in **Roster · Sign-In**, and adjust the **Daily
+4. Add your campers/staff in **Roster · Sign-In**, and adjust the **Daily
    Schedule** to your camp's timeline.
+5. Log any incidents by hand in the **Incident Report Log**.
 6. Click **Save file** whenever you want a portable backup.
 
 ## Notes
 
 - All data stays on your device (browser storage) plus any files you save. The
-  only network calls are to the National Weather Service and to a Google Sheet
-  CSV link *if* you connect one.
+  only network call is to the National Weather Service, for the weather panel.
 - **Reset board** clears everything on the current computer — export a `Save file`
   first if you might want it back.
