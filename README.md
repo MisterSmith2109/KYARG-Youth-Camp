@@ -27,8 +27,10 @@ it works, online or offline.
   for each level. Enter a reading from a heat-stress meter, or pull an estimate
   from the current weather (temperature + humidity). Guidance is a guideline —
   always follow your camp medical SOP.
-- **Daily Schedule** *(new)* — the day's activities and timing. Mark one item
-  **Now** to highlight the current event.
+- **Daily Schedule** *(new)* — a **separate schedule per platoon**. Eight
+  platoons (Alpha–Hotel) ship by default; switch between them with the tabs,
+  rename any platoon, and add or remove platoons. Each keeps its own activities
+  and timing; mark one item **Now** to highlight the current event.
 - **Incident Report Log** — one row per report; log incidents by hand.
 - **Copy SITREP** — one-tap plain-text situation report (accountability, who's
   not signed in, PERSTAT, schedule, incidents) ready to paste into an email or chat.
@@ -60,8 +62,9 @@ can be added as a follow-up.
 2. Edit the **camp name** in the header.
 3. In the **Weather** panel, type your camp's `lat, lon` and press *Set* (or
    press *Locate* to use the device's location).
-4. Add your campers/staff in **Roster · Sign-In**, and adjust the **Daily
-   Schedule** to your camp's timeline.
+4. Add your campers/staff in **Roster · Sign-In**. In **Daily Schedule**, pick
+   each platoon tab (Alpha–Hotel), rename it if you have platoon names, and set
+   that platoon's activities.
 5. In **Heat Condition · WBGT**, enter a meter reading or press *Use weather
    estimate* to set the heat flag for the day.
 6. Log any incidents by hand in the **Incident Report Log**.

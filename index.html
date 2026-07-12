@@ -245,7 +245,15 @@
   .sign-btn.to-out{color:var(--amber);border-color:var(--amber)}
   td.sign{width:96px}
   .tbl-scroll{overflow-x:auto}
-  /* Daily schedule */
+  /* Daily schedule — platoon tabs */
+  .ptab-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+  .ptab{background:var(--panel-2);border:1px solid var(--line);color:var(--muted);border-radius:5px;
+    padding:6px 12px;cursor:pointer;font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.06em;white-space:nowrap}
+  .ptab:hover{border-color:var(--olive-bright);color:var(--ink)}
+  .ptab.active{background:var(--olive);border-color:var(--olive);color:#12140f}
+  .ptab-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+  .ptab-tools .fld-k{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+  .pt-name-input{width:auto;flex:0 1 200px;min-width:140px;font-weight:700}
   tr.now-row td{background:rgba(168,184,106,.12)}
   .sch-Now{color:#0f1a0e;background:var(--olive-bright);border-color:var(--olive-bright)}
   .sch-Done{color:var(--muted);background:var(--panel-2);border-color:var(--line-soft)}
@@ -429,7 +437,14 @@
       <span class="hint" id="schToday"></span>
     </div>
     <div class="panel-body">
-      <div class="panel-sub">Today&rsquo;s activities and timing. Set an item to &ldquo;Now&rdquo; to highlight the current event on the board.</div>
+      <div class="panel-sub">Each platoon has its own schedule. Pick a platoon below, rename it if needed, and edit its activities. Set an item to &ldquo;Now&rdquo; to highlight the current event.</div>
+      <div class="ptab-row" id="ptabRow"></div>
+      <div class="ptab-tools">
+        <span class="fld-k">Platoon name</span>
+        <input id="ptName" class="pt-name-input" placeholder="Platoon name" aria-label="Platoon name">
+        <button class="btn2" id="ptAdd">+ Platoon</button>
+        <button class="btn2" id="ptDel">Remove platoon</button>
+      </div>
       <div class="tbl-scroll">
         <table>
           <thead><tr><th>Time</th><th>Activity</th><th>Location</th><th>Status</th><th></th></tr></thead>
@@ -471,6 +486,22 @@
   const MON=["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
  
   // ---------- default state ----------
+  // Base platoon names (NATO phonetic); the camp renames these later.
+  const NATO=["Alpha","Bravo","Charlie","Delta","Echo","Foxtrot","Golf","Hotel"];
+  function defaultDay(){
+    return [
+      {time:"0600", activity:"Reveille / Wake-up", loc:"Barracks", status:"Upcoming"},
+      {time:"0630", activity:"PT / Morning Formation", loc:"Field", status:"Upcoming"},
+      {time:"0730", activity:"Breakfast", loc:"Dining Facility", status:"Upcoming"},
+      {time:"0900", activity:"Morning Training / Classes", loc:"Field", status:"Upcoming"},
+      {time:"1200", activity:"Lunch", loc:"Dining Facility", status:"Upcoming"},
+      {time:"1300", activity:"Afternoon Activities", loc:"Range / Field", status:"Upcoming"},
+      {time:"1730", activity:"Dinner", loc:"Dining Facility", status:"Upcoming"},
+      {time:"1900", activity:"Evening Program", loc:"Assembly Area", status:"Upcoming"},
+      {time:"2100", activity:"Final Accountability", loc:"Barracks", status:"Upcoming"},
+      {time:"2200", activity:"Lights Out", loc:"Barracks", status:"Upcoming"}
+    ];
+  }
   const defaults=()=>({
     campName:"KYARNG Youth Camp",
     day:"", oic:"", nco:"", wx:"",
@@ -485,21 +516,31 @@
     ],
     incidents:[],
     roster:[],
-    schedule:[
-      {time:"0600", activity:"Reveille / Wake-up", loc:"Barracks", status:"Upcoming"},
-      {time:"0630", activity:"PT / Morning Formation", loc:"Field", status:"Upcoming"},
-      {time:"0730", activity:"Breakfast", loc:"Dining Facility", status:"Upcoming"},
-      {time:"0900", activity:"Morning Training / Classes", loc:"Field", status:"Upcoming"},
-      {time:"1200", activity:"Lunch", loc:"Dining Facility", status:"Upcoming"},
-      {time:"1300", activity:"Afternoon Activities", loc:"Range / Field", status:"Upcoming"},
-      {time:"1730", activity:"Dinner", loc:"Dining Facility", status:"Upcoming"},
-      {time:"1900", activity:"Evening Program", loc:"Assembly Area", status:"Upcoming"},
-      {time:"2100", activity:"Final Accountability", loc:"Barracks", status:"Upcoming"},
-      {time:"2200", activity:"Lights Out", loc:"Barracks", status:"Upcoming"}
-    ]
+    activePlatoon:0,
+    platoons: NATO.map(n=>({name:n, schedule:defaultDay()}))
   });
  
   let state=defaults();
+
+  // Merge saved/loaded data over defaults and upgrade older formats (e.g. single schedule -> platoons).
+  function migrateState(loaded){
+    const st=Object.assign(defaults(), loaded||{});
+    if(loaded && loaded.schedule && !loaded.platoons){
+      const base=defaults().platoons;
+      base[0].schedule=loaded.schedule;
+      st.platoons=base;
+      st.activePlatoon=0;
+    }
+    if(!Array.isArray(st.platoons)||!st.platoons.length) st.platoons=defaults().platoons;
+    st.platoons.forEach((pl,i)=>{
+      if(!pl||typeof pl!=="object"){ st.platoons[i]={name:NATO[i]||("Platoon "+(i+1)), schedule:[]}; return; }
+      if(!Array.isArray(pl.schedule)) pl.schedule=[];
+      if(pl.name==null) pl.name=NATO[i]||("Platoon "+(i+1));
+    });
+    if(typeof st.activePlatoon!=="number"||st.activePlatoon<0||st.activePlatoon>=st.platoons.length) st.activePlatoon=0;
+    delete st.schedule;
+    return st;
+  }
  
   // ---------- persistence (Claude artifact -> localStorage -> memory) ----------
   const Store={
@@ -687,13 +728,36 @@
     $("rosterCount").innerHTML="<b>"+rc.in+"</b> in · "+rc.out+" out"+(rc.absent?" · "+rc.absent+" absent":"")+" · "+rc.total+" total";
   }
 
-  // ---------- render schedule ----------
+  // ---------- schedule (per platoon) ----------
+  function curPlatoon(){
+    const p=state.platoons||[];
+    if(!p.length) return null;
+    let i=state.activePlatoon||0;
+    if(i<0||i>=p.length){ i=0; state.activePlatoon=0; }
+    if(!Array.isArray(p[i].schedule)) p[i].schedule=[];
+    return p[i];
+  }
+  function renderPtabs(){
+    const row=$("ptabRow"); if(!row) return;
+    row.innerHTML="";
+    (state.platoons||[]).forEach((pl,i)=>{
+      const btn=document.createElement("button");
+      btn.className="ptab"+(i===state.activePlatoon?" active":"");
+      btn.textContent=pl.name||("Platoon "+(i+1));
+      btn.dataset.ptab=i;
+      row.appendChild(btn);
+    });
+    const pn=$("ptName"); const cp=curPlatoon();
+    if(pn) pn.value=cp?(cp.name||""):"";
+  }
   function renderSchedule(){
     const b=$("schBody"); b.innerHTML="";
-    if((state.schedule||[]).length===0){
-      b.innerHTML='<tr><td colspan="5" class="inc-empty">No activities yet. Use &ldquo;+ Add activity&rdquo; to build the day.</td></tr>';
+    const cp=curPlatoon();
+    const list=cp?cp.schedule:[];
+    if(list.length===0){
+      b.innerHTML='<tr><td colspan="5" class="inc-empty">No activities yet. Use &ldquo;+ Add activity&rdquo; to build this platoon&rsquo;s day.</td></tr>';
     }else{
-      state.schedule.forEach((r,i)=>{
+      list.forEach((r,i)=>{
         const st=r.status||"Upcoming";
         const tr=document.createElement("tr");
         if(st==="Now") tr.className="now-row";
@@ -710,7 +774,7 @@
     const el=$("schToday"); if(el){ const d=new Date(); el.textContent=MON[d.getMonth()]+" "+pad(d.getDate()); }
   }
 
-  function renderAll(){ renderTiles(); renderPer(); renderInc(); renderRoster(); renderSchedule(); renderHeat(); }
+  function renderAll(){ renderTiles(); renderPer(); renderInc(); renderRoster(); renderPtabs(); renderSchedule(); renderHeat(); }
  
   // ---------- events ----------
   // header + tile fields
@@ -724,12 +788,12 @@
     if(t.dataset.per!=null){ const r=state.perstat[+t.dataset.per]; const f=t.dataset.f; r[f]=(f==="label")?t.value:(+t.value||0); renderPer(); renderTiles(); save(); }
     else if(t.dataset.inc!=null){ state.incidents[+t.dataset.inc][t.dataset.f]=t.value; save(); }
     else if(t.dataset.ros!=null){ state.roster[+t.dataset.ros][t.dataset.f]=t.value; save(); }
-    else if(t.dataset.sch!=null){ state.schedule[+t.dataset.sch][t.dataset.f]=t.value; save(); }
+    else if(t.dataset.sch!=null){ const cp=curPlatoon(); if(cp) cp.schedule[+t.dataset.sch][t.dataset.f]=t.value; save(); }
   });
   document.body.addEventListener("change",e=>{
     const t=e.target;
     if(t.dataset.ros!=null){ const f=t.dataset.f; const r=state.roster[+t.dataset.ros]; r[f]=t.value; if(f==="status") r.last=nowDTG(); renderRoster(); renderTiles(); save(); return; }
-    if(t.dataset.sch!=null){ state.schedule[+t.dataset.sch][t.dataset.f]=t.value; renderSchedule(); save(); return; }
+    if(t.dataset.sch!=null){ const cp=curPlatoon(); if(cp) cp.schedule[+t.dataset.sch][t.dataset.f]=t.value; renderSchedule(); save(); return; }
   });
   // delegated delete + add
   document.body.addEventListener("click",e=>{
@@ -737,8 +801,9 @@
     if(t.dataset.delper!=null){ state.perstat.splice(+t.dataset.delper,1); renderPer(); renderTiles(); save(); }
     else if(t.dataset.delinc!=null){ state.incidents.splice(+t.dataset.delinc,1); renderInc(); renderTiles(); save(); }
     else if(t.dataset.delros!=null){ state.roster.splice(+t.dataset.delros,1); renderRoster(); renderTiles(); save(); }
-    else if(t.dataset.delsch!=null){ state.schedule.splice(+t.dataset.delsch,1); renderSchedule(); save(); }
+    else if(t.dataset.delsch!=null){ const cp=curPlatoon(); if(cp) cp.schedule.splice(+t.dataset.delsch,1); renderSchedule(); save(); }
     else if(t.dataset.signros!=null){ const r=state.roster[+t.dataset.signros]; r.status=(r.status==="In")?"Out":"In"; r.last=nowDTG(); renderRoster(); renderTiles(); save(); }
+    else if(t.dataset.ptab!=null){ state.activePlatoon=+t.dataset.ptab; renderPtabs(); renderSchedule(); save(); }
   });
   $("addPer").addEventListener("click",()=>{ state.perstat.push({label:"New element",asg:0,pres:0}); renderPer(); renderTiles(); save(); });
   $("addInc").addEventListener("click",()=>{
@@ -757,7 +822,24 @@
   });
   $("rInAll").addEventListener("click",()=>{ const d=nowDTG(); state.roster.forEach(r=>{ if(r.status!=="Absent"){ r.status="In"; r.last=d; } }); renderRoster(); renderTiles(); save(); });
   $("rOutAll").addEventListener("click",()=>{ const d=nowDTG(); state.roster.forEach(r=>{ if(r.status!=="Absent"){ r.status="Out"; r.last=d; } }); renderRoster(); renderTiles(); save(); });
-  $("addSch").addEventListener("click",()=>{ state.schedule.push({time:"",activity:"",loc:"",status:"Upcoming"}); renderSchedule(); save(); });
+  $("addSch").addEventListener("click",()=>{ const cp=curPlatoon(); if(!cp) return; cp.schedule.push({time:"",activity:"",loc:"",status:"Upcoming"}); renderSchedule(); save(); });
+
+  // platoon controls
+  $("ptName").addEventListener("input",e=>{ const cp=curPlatoon(); if(!cp) return; cp.name=e.target.value; renderPtabs(); save(); });
+  $("ptAdd").addEventListener("click",()=>{
+    state.platoons=state.platoons||[];
+    state.platoons.push({name:"Platoon "+(state.platoons.length+1), schedule:defaultDay()});
+    state.activePlatoon=state.platoons.length-1;
+    renderPtabs(); renderSchedule(); $("ptName").focus(); save();
+  });
+  $("ptDel").addEventListener("click",()=>{
+    if(!state.platoons||state.platoons.length<=1){ alert("Keep at least one platoon."); return; }
+    const cp=curPlatoon();
+    if(!confirm("Remove platoon “"+((cp&&cp.name)||"")+"” and its schedule?")) return;
+    state.platoons.splice(state.activePlatoon,1);
+    if(state.activePlatoon>=state.platoons.length) state.activePlatoon=state.platoons.length-1;
+    renderPtabs(); renderSchedule(); save();
+  });
 
   // heat / WBGT controls
   function setWbgt(v){ state.wbgt=(v===""||isNaN(parseFloat(v)))?null:parseFloat(v); renderHeat(); save(); }
@@ -801,10 +883,11 @@
         notIn.forEach(r=>L.push("  ["+(r.status||"Out").toUpperCase().padEnd(6)+"] "+(r.name||"(unnamed)")+(r.group?" / "+r.group:"")+(r.role?" ("+r.role+")":"")));
       }
     }
-    if((state.schedule||[]).length){
+    const cp=curPlatoon();
+    if(cp&&cp.schedule.length){
       L.push("");
-      L.push("SCHEDULE");
-      state.schedule.forEach(r=>L.push("  "+String(r.time||"----").padEnd(6)+" "+(r.activity||"")+(r.loc?" @ "+r.loc:"")+(r.status&&r.status!=="Upcoming"?"  ["+r.status+"]":"")));
+      L.push("SCHEDULE — "+(cp.name||"Platoon"));
+      cp.schedule.forEach(r=>L.push("  "+String(r.time||"----").padEnd(6)+" "+(r.activity||"")+(r.loc?" @ "+r.loc:"")+(r.status&&r.status!=="Upcoming"?"  ["+r.status+"]":"")));
     }
     if(state.incidents.length){
       L.push("");
@@ -850,7 +933,7 @@
       try{ obj=JSON.parse(String(fr.result)); }catch(e){ alert("That file is not a valid board file."); return; }
       if(!obj||typeof obj!=="object"||Array.isArray(obj)){ alert("That file is not a valid board file."); return; }
       if(!confirm("Load this board file? It replaces the current board on this computer.")) return;
-      state=Object.assign(defaults(),obj);
+      state=migrateState(obj);
       $("campName").value=state.campName||"";
       $("mDay").value=state.day||""; $("mOic").value=state.oic||""; $("mNco").value=state.nco||""; $("mWx").value=state.wx||"";
       $("wxCoords").value=state.wxCoords||"";
@@ -1018,7 +1101,7 @@
   // ---------- init ----------
   (async function init(){
     const loaded=await Store.load();
-    if(loaded){ state=Object.assign(defaults(),loaded); }
+    state=migrateState(loaded);
     $("campName").value=state.campName;
     $("mDay").value=state.day; $("mOic").value=state.oic; $("mNco").value=state.nco; $("mWx").value=state.wx;
     var _st=$("soTitle"); if(_st) _st.textContent=state.campName;
