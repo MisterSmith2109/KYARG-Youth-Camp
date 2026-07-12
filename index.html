@@ -262,6 +262,9 @@
   .pt-name-input{width:auto;flex:0 1 200px;min-width:140px;font-weight:700}
   #schBody td:first-child{width:104px}
   #schBody td:first-child input{font-family:var(--mono);font-size:13px}
+  .status-pill{display:inline-block;min-width:92px;text-align:center;font-family:var(--mono);font-weight:700;
+    font-size:12px;letter-spacing:.04em;padding:5px 8px;border-radius:5px;border:1px solid var(--line-soft)}
+  .btn2-armed{border-color:var(--red)!important;color:var(--red)!important}
   tr.now-row td{background:rgba(168,184,106,.12)}
   .sch-Now{color:#0f1a0e;background:var(--olive-bright);border-color:var(--olive-bright)}
   .sch-Done{color:var(--muted);background:var(--panel-2);border-color:var(--line-soft)}
@@ -445,7 +448,7 @@
       <span class="hint" id="schToday"></span>
     </div>
     <div class="panel-body">
-      <div class="panel-sub">Pick a <b>day</b>, then a <b>platoon</b>, to see that platoon&rsquo;s schedule. Rename platoons as needed; set an item to &ldquo;Now&rdquo; to highlight the current event.</div>
+      <div class="panel-sub">Pick a <b>day</b>, then a <b>platoon</b>, to see that platoon&rsquo;s schedule. Status advances automatically with the clock &mdash; events turn <b>Now</b>, then <b>Done</b>, as their time passes. Rename platoons as needed.</div>
       <div class="picker-label">Day</div>
       <div class="dtab-row" id="dtabRow"></div>
       <div class="picker-label">Platoon</div>
@@ -732,6 +735,29 @@
   }
 
   // ---------- schedule (per day × platoon) ----------
+  // Live status from the clock: events auto-advance Upcoming -> Now -> Done as time passes.
+  function hm(str){ str=String(str); if(str.length===3) str="0"+str; if(str.length!==4) return null; const h=+str.slice(0,2), mi=+str.slice(2,4); if(isNaN(h)||isNaN(mi)||h>23||mi>59) return null; return h*60+mi; }
+  function parseTimeRange(t){
+    t=String(t||"").trim();
+    let m=t.match(/^(\d{3,4})\s*[-–]\s*(\d{3,4})$/);
+    if(m){ const s=hm(m[1]), e=hm(m[2]); if(s==null||e==null) return null; let end=e; if(end<s) end+=1440; return {start:s,end:end}; }
+    m=t.match(/^(\d{3,4})$/);
+    if(m){ const s=hm(m[1]); if(s==null) return null; return {start:s,end:null}; }
+    return null;
+  }
+  function nowMinutes(){ const d=new Date(); return d.getHours()*60+d.getMinutes(); }
+  function todayIndex(){ return (new Date().getDay()+1)%7; } // CAMP_DAYS starts Saturday
+  // Status of a schedule row for the currently selected day, from the live clock.
+  function schStatus(row){
+    const sel=state.activeDay||0, today=todayIndex();
+    if(sel<today) return "Done";
+    if(sel>today) return "Upcoming";
+    const rng=parseTimeRange(row&&row.time);
+    if(!rng) return "Upcoming";
+    const now=nowMinutes();
+    if(rng.end!=null){ if(now<rng.start) return "Upcoming"; if(now<rng.end) return "Now"; return "Done"; }
+    return now<rng.start ? "Upcoming" : "Done";
+  }
   function curDayLabel(){
     let i=state.activeDay||0;
     if(i<0||i>=CAMP_DAYS.length){ i=0; state.activeDay=0; }
@@ -782,20 +808,32 @@
       b.innerHTML='<tr><td colspan="5" class="inc-empty">No activities yet. Use &ldquo;+ Add activity&rdquo; to build this platoon&rsquo;s day.</td></tr>';
     }else{
       list.forEach((r,i)=>{
-        const st=r.status||"Upcoming";
+        const st=schStatus(r);
         const tr=document.createElement("tr");
         if(st==="Now") tr.className="now-row";
         tr.innerHTML=
           '<td class="num"><input data-sch="'+i+'" data-f="time" value="'+esc(r.time)+'" placeholder="0900"></td>'+
           '<td><input class="row-label" data-sch="'+i+'" data-f="activity" value="'+esc(r.activity)+'" placeholder="Activity"></td>'+
           '<td><input data-sch="'+i+'" data-f="loc" value="'+esc(r.loc)+'" placeholder="Location"></td>'+
-          '<td class="num"><select class="status schstatus sch-'+st+'" data-sch="'+i+'" data-f="status">'+
-            ["Upcoming","Now","Done"].map(s=>'<option '+(s===st?"selected":"")+'>'+s+'</option>').join("")+'</select></td>'+
+          '<td class="num"><span class="status-pill sch-'+st+'">'+st+'</span></td>'+
           '<td><button class="icon-btn" data-delsch="'+i+'" title="Remove">×</button></td>';
         b.appendChild(tr);
       });
     }
     const el=$("schToday"); if(el){ const d=new Date(); el.textContent=MON[d.getMonth()]+" "+pad(d.getDate()); }
+  }
+  // Re-evaluate status pills in place (no rebuild) so the clock advances them without stealing input focus.
+  function refreshSchedStatuses(){
+    const list=curSched(); if(!list) return;
+    const rows=$("schBody").querySelectorAll("tr");
+    rows.forEach(tr=>{
+      const inp=tr.querySelector("[data-sch]"); if(!inp) return;
+      const r=list[+inp.dataset.sch]; if(!r) return;
+      const st=schStatus(r);
+      tr.classList.toggle("now-row", st==="Now");
+      const pill=tr.querySelector(".status-pill");
+      if(pill){ pill.textContent=st; pill.className="status-pill sch-"+st; }
+    });
   }
 
   function renderAll(){ renderTiles(); renderPer(); renderInc(); renderRoster(); renderDtabs(); renderPtabs(); renderSchedule(); renderHeat(); }
@@ -812,12 +850,11 @@
     if(t.dataset.per!=null){ const r=state.perstat[+t.dataset.per]; const f=t.dataset.f; r[f]=(f==="label")?t.value:(+t.value||0); renderPer(); renderTiles(); save(); }
     else if(t.dataset.inc!=null){ state.incidents[+t.dataset.inc][t.dataset.f]=t.value; save(); }
     else if(t.dataset.ros!=null){ state.roster[+t.dataset.ros][t.dataset.f]=t.value; save(); }
-    else if(t.dataset.sch!=null){ const s=curSched(); if(s&&s[+t.dataset.sch]) s[+t.dataset.sch][t.dataset.f]=t.value; save(); }
+    else if(t.dataset.sch!=null){ const s=curSched(); if(s&&s[+t.dataset.sch]) s[+t.dataset.sch][t.dataset.f]=t.value; if(t.dataset.f==="time") refreshSchedStatuses(); save(); }
   });
   document.body.addEventListener("change",e=>{
     const t=e.target;
     if(t.dataset.ros!=null){ const f=t.dataset.f; const r=state.roster[+t.dataset.ros]; r[f]=t.value; if(f==="status") r.last=nowDTG(); renderRoster(); renderTiles(); save(); return; }
-    if(t.dataset.sch!=null){ const s=curSched(); if(s&&s[+t.dataset.sch]) s[+t.dataset.sch][t.dataset.f]=t.value; renderSchedule(); save(); return; }
   });
   // delegated delete + add
   document.body.addEventListener("click",e=>{
@@ -857,14 +894,26 @@
     state.activePlatoon=state.platoons.length-1;
     renderPtabs(); renderSchedule(); $("ptName").focus(); save();
   });
+  // Inline two-click confirm (native confirm()/alert() are blocked in sandboxed previews).
+  let ptDelArmed=false, ptDelTimer=null;
+  function resetPtDel(){ ptDelArmed=false; clearTimeout(ptDelTimer); const btn=$("ptDel"); btn.textContent="Remove platoon"; btn.classList.remove("btn2-armed"); }
+  function flashPtDel(msg){ const btn=$("ptDel"); btn.textContent=msg; setTimeout(()=>{ if(!ptDelArmed) btn.textContent="Remove platoon"; },1600); }
   $("ptDel").addEventListener("click",()=>{
-    if(!state.platoons||state.platoons.length<=1){ alert("Keep at least one platoon."); return; }
-    const cp=curPlatoon();
-    if(!confirm("Remove platoon “"+((cp&&cp.name)||"")+"” and its schedule?")) return;
+    if(!state.platoons||state.platoons.length<=1){ flashPtDel("Keep ≥1 platoon"); return; }
+    if(!ptDelArmed){
+      ptDelArmed=true;
+      const btn=$("ptDel"); btn.textContent="Click again to remove"; btn.classList.add("btn2-armed");
+      clearTimeout(ptDelTimer); ptDelTimer=setTimeout(resetPtDel,3500);
+      return;
+    }
+    resetPtDel();
     state.platoons.splice(state.activePlatoon,1);
     if(state.activePlatoon>=state.platoons.length) state.activePlatoon=state.platoons.length-1;
     renderPtabs(); renderSchedule(); save();
   });
+  // Switching platoons/days cancels a pending delete confirmation.
+  $("ptabRow").addEventListener("click",()=>{ if(ptDelArmed) resetPtDel(); });
+  $("dtabRow").addEventListener("click",()=>{ if(ptDelArmed) resetPtDel(); });
 
   // heat / WBGT controls
   function setWbgt(v){ state.wbgt=(v===""||isNaN(parseFloat(v)))?null:parseFloat(v); renderHeat(); save(); }
@@ -912,7 +961,7 @@
     if(cp&&csched&&csched.length){
       L.push("");
       L.push("SCHEDULE — "+(cp.name||"Platoon")+" ("+curDayLabel()+")");
-      csched.forEach(r=>L.push("  "+String(r.time||"----").padEnd(10)+" "+(r.activity||"")+(r.loc?" @ "+r.loc:"")+(r.status&&r.status!=="Upcoming"?"  ["+r.status+"]":"")));
+      csched.forEach(r=>{ const st=schStatus(r); L.push("  "+String(r.time||"----").padEnd(10)+" "+(r.activity||"")+(r.loc?" @ "+r.loc:"")+(st!=="Upcoming"?"  ["+st+"]":"")); });
     }
     if(state.incidents.length){
       L.push("");
@@ -1134,6 +1183,7 @@
     var _st=$("soTitle"); if(_st) _st.textContent=state.campName;
     renderAll();
     tickClock(); setInterval(tickClock,1000);
+    setInterval(refreshSchedStatuses,30000); // advance schedule statuses as time passes
     $("wxCoords").value=state.wxCoords||"";
     $("heatInput").value=(state.wbgt!=null?state.wbgt:"");
     WX.load();
