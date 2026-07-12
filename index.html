@@ -244,6 +244,31 @@
   .feed-note{font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.6;margin-top:4px}
   @media (max-width:820px){ .intake-grid{grid-template-columns:1fr} }
   @media print{ .intake-grid{display:none} }
+  /* Plain-English helper line under panel headers */
+  .panel-sub{font-family:var(--sans);font-size:12px;color:var(--muted);font-weight:400;letter-spacing:0;text-transform:none;margin:0 0 10px}
+  /* Roster / sign-in */
+  .roster-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+  .roster-tools input{width:auto;flex:1;min-width:180px}
+  .roster-count{font-family:var(--mono);font-size:12px;color:var(--muted);white-space:nowrap}
+  .roster-count b{color:var(--olive-bright)}
+  select.rstatus,select.schstatus{font-family:var(--mono);font-weight:700;text-align:center;letter-spacing:.04em}
+  /* keep status labels (GREEN / Absent / Upcoming) from being clipped */
+  select.status{width:auto;min-width:98px;max-width:130px;padding-left:6px;padding-right:6px;letter-spacing:.03em}
+  .r-in{color:#0f1a0e;background:var(--green);border-color:var(--green)}
+  .r-out{color:#241a05;background:var(--amber);border-color:var(--amber)}
+  .r-absent{color:#e9ead9;background:var(--black-status);border-color:var(--black-status)}
+  .sign-btn{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:5px;
+    padding:6px 10px;cursor:pointer;font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.06em;width:auto;white-space:nowrap}
+  .sign-btn:hover{border-color:var(--olive-bright)}
+  .sign-btn.to-in{color:var(--green);border-color:var(--green)}
+  .sign-btn.to-out{color:var(--amber);border-color:var(--amber)}
+  td.sign{width:96px}
+  .tbl-scroll{overflow-x:auto}
+  /* Daily schedule */
+  tr.now-row td{background:rgba(168,184,106,.12)}
+  .sch-Now{color:#0f1a0e;background:var(--olive-bright);border-color:var(--olive-bright)}
+  .sch-Done{color:var(--muted);background:var(--panel-2);border-color:var(--line-soft)}
+  .sch-Upcoming{color:var(--ink);background:var(--panel-2);border-color:var(--line-soft)}
 </style>
 </head>
 <body>
@@ -323,11 +348,36 @@
     </div>
   </div>
  
+  <!-- ROSTER / SIGN-IN -->
+  <div class="panel">
+    <div class="panel-head">
+      <h2>Roster &bull; Sign-In</h2>
+      <span class="hint">in &middot; out &middot; absent</span>
+    </div>
+    <div class="panel-body">
+      <div class="panel-sub">Sign campers and staff in and out. When anyone is on this roster, it drives the Accountability tile above.</div>
+      <div class="roster-tools">
+        <input id="rosterAdd" placeholder="Type a name and press Enter to add &amp; sign in">
+        <button class="btn2" id="rInAll">Sign all in</button>
+        <button class="btn2" id="rOutAll">Sign all out</button>
+        <span class="roster-count" id="rosterCount"></span>
+      </div>
+      <div class="tbl-scroll">
+        <table>
+          <thead><tr><th>Name</th><th>Group</th><th>Role</th><th>Status</th><th>Action</th><th></th></tr></thead>
+          <tbody id="rosterBody"></tbody>
+        </table>
+      </div>
+      <button class="add-btn" id="addRoster">+ Add person</button>
+    </div>
+  </div>
+
   <div class="grid-2">
     <!-- PERSTAT -->
     <div class="panel">
       <div class="panel-head"><h2>PERSTAT</h2><span class="hint">assigned &rarr; present</span></div>
       <div class="panel-body">
+        <div class="panel-sub">Personnel status &mdash; how many are assigned vs. actually present. (ASG = assigned, PRES = present.)</div>
         <table>
           <thead><tr><th>Element</th><th>ASG</th><th>PRES</th><th>Gap</th><th></th></tr></thead>
           <tbody id="perBody"></tbody>
@@ -349,6 +399,7 @@
     <div class="panel">
       <div class="panel-head"><h2>LOGSTAT</h2><span class="hint">G / A / R / B</span></div>
       <div class="panel-body">
+        <div class="panel-sub">Logistics status &mdash; supply readiness. Green = good, Amber = watch, Red = short, Black = out. (OH = on hand, REQ = required.)</div>
         <table>
           <thead><tr><th>Item</th><th>Status</th><th>OH</th><th>REQ</th><th></th></tr></thead>
           <tbody id="logBody"></tbody>
@@ -358,6 +409,24 @@
     </div>
   </div>
  
+  <!-- DAILY SCHEDULE -->
+  <div class="panel">
+    <div class="panel-head">
+      <h2>Daily Schedule</h2>
+      <span class="hint" id="schToday"></span>
+    </div>
+    <div class="panel-body">
+      <div class="panel-sub">Today&rsquo;s activities and timing. Set an item to &ldquo;Now&rdquo; to highlight the current event on the board.</div>
+      <div class="tbl-scroll">
+        <table>
+          <thead><tr><th>Time</th><th>Activity</th><th>Location</th><th>Status</th><th></th></tr></thead>
+          <tbody id="schBody"></tbody>
+        </table>
+      </div>
+      <button class="add-btn" id="addSch">+ Add activity</button>
+    </div>
+  </div>
+
   <!-- INCIDENT INTAKE -->
   <div class="panel">
     <div class="panel-head"><h2>Incident Intake</h2><span class="hint">QR &bull; auto-import</span></div>
@@ -403,6 +472,9 @@
     <button class="btn" id="btnFull">Full screen</button>
     <button class="btn" id="btnCopy">Copy SITREP</button>
     <button class="btn" id="btnPrint">Print</button>
+    <button class="btn" id="btnSave" title="Download the whole board as a file you can carry to another computer">Save file</button>
+    <button class="btn" id="btnLoad" title="Load a board file saved on another computer">Load file</button>
+    <input type="file" id="boardFile" accept=".json,application/json" style="display:none">
     <button class="btn danger" id="btnReset">Reset board</button>
   </div>
  
@@ -2710,9 +2782,10 @@ var qrcode = function() {
 <script>
 (function(){
   "use strict";
-  const KEY="camp-toc-dashboard-v1";
+  const KEY="kyarng-camp-board-v2";
   const $=id=>document.getElementById(id);
   const pad=n=>String(n).padStart(2,"0");
+  const nowDTG=()=>{ const d=new Date(); return pad(d.getUTCDate())+pad(d.getUTCHours())+pad(d.getUTCMinutes())+"Z"; };
   const MON=["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
  
   // ---------- default state ----------
@@ -2720,7 +2793,7 @@ var qrcode = function() {
     campName:"KYARNG Youth Camp",
     day:"", oic:"", nco:"", wx:"",
     wxCoords:"37.3849, -86.2335",
-    formUrl:"https://docs.google.com/forms/d/e/1FAIpQLSfQxVMeFaqLhvdSTNSa7JP5WqHsKSp9yajqbyUdWZKQtF_b0Q/viewform", feedUrl:"", feedAuto:false, importedKeys:[],
+    formUrl:"", feedUrl:"", feedAuto:false, importedKeys:[],
     volLabel:"Volunteers", vol:0,
     gsaLabel:"GSAs", gsa:0,
     perstat:[
@@ -2737,7 +2810,20 @@ var qrcode = function() {
       {item:"Transportation", status:"GREEN", oh:"", req:""},
       {item:"Comms", status:"GREEN", oh:"", req:""}
     ],
-    incidents:[]
+    incidents:[],
+    roster:[],
+    schedule:[
+      {time:"0600", activity:"Reveille / Wake-up", loc:"Barracks", status:"Upcoming"},
+      {time:"0630", activity:"PT / Morning Formation", loc:"Field", status:"Upcoming"},
+      {time:"0730", activity:"Breakfast", loc:"Dining Facility", status:"Upcoming"},
+      {time:"0900", activity:"Morning Training / Classes", loc:"Field", status:"Upcoming"},
+      {time:"1200", activity:"Lunch", loc:"Dining Facility", status:"Upcoming"},
+      {time:"1300", activity:"Afternoon Activities", loc:"Range / Field", status:"Upcoming"},
+      {time:"1730", activity:"Dinner", loc:"Dining Facility", status:"Upcoming"},
+      {time:"1900", activity:"Evening Program", loc:"Assembly Area", status:"Upcoming"},
+      {time:"2100", activity:"Final Accountability", loc:"Barracks", status:"Upcoming"},
+      {time:"2200", activity:"Lights Out", loc:"Barracks", status:"Upcoming"}
+    ]
   });
  
   let state=defaults();
@@ -2782,6 +2868,15 @@ var qrcode = function() {
     state.perstat.forEach(r=>{a+=(+r.asg||0); p+=(+r.pres||0);});
     return {asg:a,pres:p,gap:a-p,pct:a>0?Math.round(p/a*1000)/10:null};
   }
+  function rosterCounts(){
+    const list=state.roster||[];
+    const inn=list.filter(r=>r.status==="In").length;
+    const out=list.filter(r=>r.status==="Out").length;
+    const abs=list.filter(r=>r.status==="Absent").length;
+    const accountable=list.length-abs;
+    return {total:list.length,in:inn,out:out,absent:abs,accountable:accountable,
+            pct:accountable>0?Math.round(inn/accountable*1000)/10:null};
+  }
  
   // ---------- render tiles ----------
   function renderTiles(){
@@ -2795,12 +2890,22 @@ var qrcode = function() {
     $("incSub").textContent=openInc+" open";
     $("tileInc").classList.toggle("alert", openInc>0);
  
-    const t=totals();
-    $("valAcc").textContent=(t.pct===null?"--":t.pct)+"%";
-    $("accSub").textContent=t.pres+" / "+t.asg+" present";
+    // Accountability: driven by the roster when it has anyone, else the PERSTAT totals.
+    let pct, sub, alertGap;
+    if((state.roster||[]).length>0){
+      const rc=rosterCounts();
+      pct=rc.pct;
+      sub=rc.in+" in / "+rc.accountable+" accountable"+(rc.absent?" · "+rc.absent+" absent":"");
+      alertGap=(rc.accountable-rc.in)>0;
+    }else{
+      const t=totals();
+      pct=t.pct; sub=t.pres+" / "+t.asg+" present"; alertGap=t.gap>0;
+    }
+    $("valAcc").textContent=(pct===null?"--":pct)+"%";
+    $("accSub").textContent=sub;
     const acc=$("tileAcc");
     acc.classList.remove("good","alert");
-    if(t.pct!==null){ if(t.pct>=100) acc.classList.add("good"); else if(t.gap>0) acc.classList.add("alert"); }
+    if(pct!==null){ if(pct>=100) acc.classList.add("good"); else if(alertGap) acc.classList.add("alert"); }
   }
  
   // ---------- render PERSTAT ----------
@@ -2861,7 +2966,57 @@ var qrcode = function() {
  
   function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
  
-  function renderAll(){ renderTiles(); renderPer(); renderLog(); renderInc(); }
+  // ---------- render roster ----------
+  const ROLES=["Camper","Staff","Volunteer","Cadre","Support"];
+  function renderRoster(){
+    const b=$("rosterBody"); b.innerHTML="";
+    if((state.roster||[]).length===0){
+      b.innerHTML='<tr><td colspan="6" class="inc-empty">No one on the roster yet. Type a name above, or use &ldquo;+ Add person&rdquo;.</td></tr>';
+    }else{
+      state.roster.forEach((r,i)=>{
+        const st=r.status||"Out";
+        const cls=st==="In"?"r-in":(st==="Absent"?"r-absent":"r-out");
+        const toIn=st!=="In";
+        const tr=document.createElement("tr");
+        tr.innerHTML=
+          '<td><input class="row-label" data-ros="'+i+'" data-f="name" value="'+esc(r.name)+'" placeholder="Name"></td>'+
+          '<td><input data-ros="'+i+'" data-f="group" value="'+esc(r.group)+'" placeholder="Group / platoon"></td>'+
+          '<td><select data-ros="'+i+'" data-f="role">'+ROLES.map(x=>'<option '+(x===r.role?"selected":"")+'>'+x+'</option>').join("")+'</select></td>'+
+          '<td class="num"><select class="status rstatus '+cls+'" data-ros="'+i+'" data-f="status">'+
+            ["In","Out","Absent"].map(s=>'<option '+(s===st?"selected":"")+'>'+s+'</option>').join("")+'</select></td>'+
+          '<td class="sign"><button class="sign-btn '+(toIn?"to-in":"to-out")+'" data-signros="'+i+'">'+(toIn?"Sign IN":"Sign OUT")+'</button></td>'+
+          '<td><button class="icon-btn" data-delros="'+i+'" title="Remove">×</button></td>';
+        b.appendChild(tr);
+      });
+    }
+    const rc=rosterCounts();
+    $("rosterCount").innerHTML="<b>"+rc.in+"</b> in · "+rc.out+" out"+(rc.absent?" · "+rc.absent+" absent":"")+" · "+rc.total+" total";
+  }
+
+  // ---------- render schedule ----------
+  function renderSchedule(){
+    const b=$("schBody"); b.innerHTML="";
+    if((state.schedule||[]).length===0){
+      b.innerHTML='<tr><td colspan="5" class="inc-empty">No activities yet. Use &ldquo;+ Add activity&rdquo; to build the day.</td></tr>';
+    }else{
+      state.schedule.forEach((r,i)=>{
+        const st=r.status||"Upcoming";
+        const tr=document.createElement("tr");
+        if(st==="Now") tr.className="now-row";
+        tr.innerHTML=
+          '<td class="num"><input data-sch="'+i+'" data-f="time" value="'+esc(r.time)+'" placeholder="0900"></td>'+
+          '<td><input class="row-label" data-sch="'+i+'" data-f="activity" value="'+esc(r.activity)+'" placeholder="Activity"></td>'+
+          '<td><input data-sch="'+i+'" data-f="loc" value="'+esc(r.loc)+'" placeholder="Location"></td>'+
+          '<td class="num"><select class="status schstatus sch-'+st+'" data-sch="'+i+'" data-f="status">'+
+            ["Upcoming","Now","Done"].map(s=>'<option '+(s===st?"selected":"")+'>'+s+'</option>').join("")+'</select></td>'+
+          '<td><button class="icon-btn" data-delsch="'+i+'" title="Remove">×</button></td>';
+        b.appendChild(tr);
+      });
+    }
+    const el=$("schToday"); if(el){ const d=new Date(); el.textContent=MON[d.getMonth()]+" "+pad(d.getDate()); }
+  }
+
+  function renderAll(){ renderTiles(); renderPer(); renderLog(); renderInc(); renderRoster(); renderSchedule(); }
  
   // ---------- events ----------
   // header + tile fields
@@ -2875,10 +3030,14 @@ var qrcode = function() {
     if(t.dataset.per!=null){ const r=state.perstat[+t.dataset.per]; const f=t.dataset.f; r[f]=(f==="label")?t.value:(+t.value||0); renderPer(); renderTiles(); save(); }
     else if(t.dataset.log!=null){ state.logstat[+t.dataset.log][t.dataset.f]=t.value; save(); }
     else if(t.dataset.inc!=null){ state.incidents[+t.dataset.inc][t.dataset.f]=t.value; save(); }
+    else if(t.dataset.ros!=null){ state.roster[+t.dataset.ros][t.dataset.f]=t.value; save(); }
+    else if(t.dataset.sch!=null){ state.schedule[+t.dataset.sch][t.dataset.f]=t.value; save(); }
   });
   document.body.addEventListener("change",e=>{
     const t=e.target;
-    if(t.classList.contains("status")){ t.className="status st-"+t.value; }
+    if(t.dataset.ros!=null){ const f=t.dataset.f; const r=state.roster[+t.dataset.ros]; r[f]=t.value; if(f==="status") r.last=nowDTG(); renderRoster(); renderTiles(); save(); return; }
+    if(t.dataset.sch!=null){ state.schedule[+t.dataset.sch][t.dataset.f]=t.value; renderSchedule(); save(); return; }
+    if(t.dataset.log!=null && t.classList.contains("status")){ t.className="status st-"+t.value; }
   });
   // delegated delete + add
   document.body.addEventListener("click",e=>{
@@ -2886,6 +3045,9 @@ var qrcode = function() {
     if(t.dataset.delper!=null){ state.perstat.splice(+t.dataset.delper,1); renderPer(); renderTiles(); save(); }
     else if(t.dataset.dellog!=null){ state.logstat.splice(+t.dataset.dellog,1); renderLog(); save(); }
     else if(t.dataset.delinc!=null){ state.incidents.splice(+t.dataset.delinc,1); renderInc(); renderTiles(); save(); }
+    else if(t.dataset.delros!=null){ state.roster.splice(+t.dataset.delros,1); renderRoster(); renderTiles(); save(); }
+    else if(t.dataset.delsch!=null){ state.schedule.splice(+t.dataset.delsch,1); renderSchedule(); save(); }
+    else if(t.dataset.signros!=null){ const r=state.roster[+t.dataset.signros]; r.status=(r.status==="In")?"Out":"In"; r.last=nowDTG(); renderRoster(); renderTiles(); save(); }
   });
   $("addPer").addEventListener("click",()=>{ state.perstat.push({label:"New element",asg:0,pres:0}); renderPer(); renderTiles(); save(); });
   $("addLog").addEventListener("click",()=>{ state.logstat.push({item:"New item",status:"GREEN",oh:"",req:""}); renderLog(); save(); });
@@ -2894,6 +3056,18 @@ var qrcode = function() {
     state.incidents.push({time:pad(d.getUTCDate())+pad(d.getUTCHours())+pad(d.getUTCMinutes())+"Z",type:"",remarks:"",status:"Open"});
     renderInc(); renderTiles(); save();
   });
+
+  // roster + schedule buttons
+  $("addRoster").addEventListener("click",()=>{ state.roster.push({name:"",group:"",role:"Camper",status:"Out",last:""}); renderRoster(); renderTiles(); save(); });
+  $("rosterAdd").addEventListener("keydown",e=>{
+    if(e.key!=="Enter") return;
+    const nm=e.target.value.trim(); if(!nm) return;
+    state.roster.push({name:nm,group:"",role:"Camper",status:"In",last:nowDTG()});
+    e.target.value=""; renderRoster(); renderTiles(); save();
+  });
+  $("rInAll").addEventListener("click",()=>{ const d=nowDTG(); state.roster.forEach(r=>{ if(r.status!=="Absent"){ r.status="In"; r.last=d; } }); renderRoster(); renderTiles(); save(); });
+  $("rOutAll").addEventListener("click",()=>{ const d=nowDTG(); state.roster.forEach(r=>{ if(r.status!=="Absent"){ r.status="Out"; r.last=d; } }); renderRoster(); renderTiles(); save(); });
+  $("addSch").addEventListener("click",()=>{ state.schedule.push({time:"",activity:"",loc:"",status:"Upcoming"}); renderSchedule(); save(); });
  
   // ---------- incident intake: QR + responses feed ----------
   function feedStatus(t){ const e=$("feedStatus"); if(e) e.textContent=t; }
@@ -3041,13 +3215,27 @@ var qrcode = function() {
     L.push(state.volLabel.toUpperCase()+": "+state.vol);
     L.push("INCIDENT REPORTS: "+state.incidents.length+" ("+state.incidents.filter(i=>i.status!=="Closed").length+" open)");
     L.push(state.gsaLabel.toUpperCase()+": "+state.gsa);
-    L.push("ACCOUNTABILITY: "+t.pres+"/"+t.asg+(t.pct===null?"":" ("+t.pct+"%)"));
+    if((state.roster||[]).length>0){ const rc=rosterCounts(); L.push("ACCOUNTABILITY: "+rc.in+"/"+rc.accountable+(rc.pct===null?"":" ("+rc.pct+"%)")+(rc.absent?" · "+rc.absent+" absent":"")); }
+    else L.push("ACCOUNTABILITY: "+t.pres+"/"+t.asg+(t.pct===null?"":" ("+t.pct+"%)"));
     L.push("");
     L.push("PERSTAT");
     state.perstat.forEach(r=>L.push("  "+r.label.padEnd(20)+" "+String(r.asg||0).padStart(4)+" ASG  "+String(r.pres||0).padStart(4)+" PRES  ("+((+r.asg||0)-(+r.pres||0))+" gap)"));
     L.push("");
     L.push("LOGSTAT");
     state.logstat.forEach(r=>L.push("  ["+r.status.padEnd(5)+"] "+r.item+(r.oh||r.req?"  OH:"+(r.oh||"-")+" REQ:"+(r.req||"-"):"")));
+    if((state.roster||[]).length){
+      const notIn=state.roster.filter(r=>r.status!=="In");
+      if(notIn.length){
+        L.push("");
+        L.push("NOT SIGNED IN");
+        notIn.forEach(r=>L.push("  ["+(r.status||"Out").toUpperCase().padEnd(6)+"] "+(r.name||"(unnamed)")+(r.group?" / "+r.group:"")+(r.role?" ("+r.role+")":"")));
+      }
+    }
+    if((state.schedule||[]).length){
+      L.push("");
+      L.push("SCHEDULE");
+      state.schedule.forEach(r=>L.push("  "+String(r.time||"----").padEnd(6)+" "+(r.activity||"")+(r.loc?" @ "+r.loc:"")+(r.status&&r.status!=="Upcoming"?"  ["+r.status+"]":"")));
+    }
     if(state.incidents.length){
       L.push("");
       L.push("INCIDENTS");
@@ -3069,6 +3257,45 @@ var qrcode = function() {
   }
  
   $("btnPrint").addEventListener("click",()=>window.print());
+
+  // ---------- board file: portable save / load between computers ----------
+  function saveFile(){
+    try{
+      const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+      const d=new Date();
+      const stamp=d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+"-"+pad(d.getHours())+pad(d.getMinutes());
+      const safe=(state.campName||"camp-board").replace(/[^a-z0-9]+/gi,"-").replace(/^-+|-+$/g,"").toLowerCase()||"camp-board";
+      const a=document.createElement("a");
+      a.href=URL.createObjectURL(blob);
+      a.download=safe+"-"+stamp+".json";
+      document.body.appendChild(a); a.click();
+      setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },0);
+    }catch(e){ alert("Could not save the board file."); }
+  }
+  function loadFile(file){
+    if(!file) return;
+    const fr=new FileReader();
+    fr.onload=()=>{
+      let obj;
+      try{ obj=JSON.parse(String(fr.result)); }catch(e){ alert("That file is not a valid board file."); return; }
+      if(!obj||typeof obj!=="object"||Array.isArray(obj)){ alert("That file is not a valid board file."); return; }
+      if(!confirm("Load this board file? It replaces the current board on this computer.")) return;
+      state=Object.assign(defaults(),obj);
+      $("campName").value=state.campName||"";
+      $("mDay").value=state.day||""; $("mOic").value=state.oic||""; $("mNco").value=state.nco||""; $("mWx").value=state.wx||"";
+      $("wxCoords").value=state.wxCoords||"";
+      $("formUrl").value=state.formUrl||""; $("feedUrl").value=state.feedUrl||""; $("feedAuto").checked=!!state.feedAuto;
+      const _st=$("soTitle"); if(_st) _st.textContent=state.campName||"";
+      renderAll();
+      $("qrBox").innerHTML=""; if(state.formUrl) showQR();
+      WX.load(); startFeed(); save();
+    };
+    fr.onerror=()=>alert("Could not read that file.");
+    fr.readAsText(file);
+  }
+  $("btnSave").addEventListener("click",saveFile);
+  $("btnLoad").addEventListener("click",()=>$("boardFile").click());
+  $("boardFile").addEventListener("change",e=>{ loadFile(e.target.files[0]); e.target.value=""; });
  
   // ---------- full screen ----------
   const fsEl=document.documentElement;
@@ -3204,15 +3431,16 @@ var qrcode = function() {
     if(!confirm("Clear the board and reset all fields? This cannot be undone.")) return;
     await Store.clear(); state=defaults();
     $("campName").value=state.campName; $("mDay").value=""; $("mOic").value=""; $("mNco").value=""; $("mWx").value="";
-    renderAll(); save();
+    $("wxCoords").value=state.wxCoords||""; $("formUrl").value=""; $("feedUrl").value=""; $("feedAuto").checked=false;
+    $("qrBox").innerHTML="";
+    const _st=$("soTitle"); if(_st) _st.textContent=state.campName;
+    renderAll(); WX.load(); save();
   });
  
   // ---------- init ----------
   (async function init(){
     const loaded=await Store.load();
     if(loaded){ state=Object.assign(defaults(),loaded); }
-    // migrate: replace the old placeholder coords with the camp site
-    if((state.wxCoords||"").indexOf("38.1970")>-1){ state.wxCoords="37.3849, -86.2335"; save(); }
     $("campName").value=state.campName;
     $("mDay").value=state.day; $("mOic").value=state.oic; $("mNco").value=state.nco; $("mWx").value=state.wx;
     var _st=$("soTitle"); if(_st) _st.textContent=state.campName;
