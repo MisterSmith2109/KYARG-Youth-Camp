@@ -290,6 +290,15 @@
   .heat-YELLOW{background:var(--amber);color:#241a05;border-color:var(--amber)}
   .heat-RED{background:var(--red);color:#2a0d08;border-color:var(--red)}
   .heat-BLACK{background:#15160f;color:#e9ead9;border-color:var(--black-status)}
+  /* Live sync */
+  .sync-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .sync-row input{flex:1;min-width:240px;font-family:var(--mono);font-size:12px}
+  .sync-status{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .sync-status.ok{color:var(--olive-bright)}
+  .sync-status.warn{color:var(--amber)}
+  .sync-dot{width:9px;height:9px;border-radius:50%;background:var(--black-status);flex:none}
+  .sync-dot.on{background:var(--green);box-shadow:0 0 7px var(--green)}
+  @media print{ #syncPanel{display:none} }
 </style>
 </head>
 <body>
@@ -477,7 +486,21 @@
       <button class="add-btn" id="addInc">+ Log incident</button>
     </div>
   </div>
- 
+
+  <!-- LIVE SYNC -->
+  <div class="panel" id="syncPanel">
+    <div class="panel-head"><h2>Live Sync</h2><span class="hint">optional &middot; shared board</span></div>
+    <div class="panel-body">
+      <div class="panel-sub">Share one live board across computers. Paste your sync link (a Google&nbsp;Apps&nbsp;Script Web&nbsp;App URL) and press Connect &mdash; every device with the link shows the same board within a few seconds. Keep the link private: anyone with it can read and edit the board. See <b>SYNC-SETUP.md</b> in the project for the 5-minute setup.</div>
+      <div class="sync-row">
+        <input id="syncUrl" placeholder="https://script.google.com/macros/s/…/exec" aria-label="Sync link">
+        <button class="btn2" id="syncConnect">Connect</button>
+        <span class="sync-dot" id="syncDot"></span>
+        <span class="sync-status" id="syncStatus">not connected</span>
+      </div>
+    </div>
+  </div>
+
   <div class="toolbar">
     <span class="awake-dot" id="awakeDot"><span class="d"></span>screen awake</span>
     <span class="save-note" id="saveNote">saved</span>
@@ -572,8 +595,88 @@
     $("saveNote").textContent="saving\u2026";
     clearTimeout(saveTimer);
     saveTimer=setTimeout(async()=>{ await Store.save(); flash(); },250);
+    syncPush();
   }
- 
+
+  // Reflect the current state into the header/weather/heat inputs (used by init, load, and sync).
+  function hydrateInputs(){
+    $("campName").value=state.campName||"";
+    $("mDay").value=state.day||""; $("mOic").value=state.oic||""; $("mNco").value=state.nco||""; $("mWx").value=state.wx||"";
+    $("wxCoords").value=state.wxCoords||"";
+    $("heatInput").value=(state.wbgt!=null?state.wbgt:"");
+    const _st=$("soTitle"); if(_st) _st.textContent=state.campName||"";
+  }
+
+  // ---------- live multi-computer sync (optional; via a Google Apps Script endpoint) ----------
+  // The server assigns the revision number (single source of truth); each device tags its
+  // writes with a device id so it ignores its own echo. GET returns {"_rev":N,"board":{...}}.
+  const SYNC_KEY="kyarng-camp-syncurl";
+  const myDeviceId="dev-"+Math.random().toString(36).slice(2,10);
+  let syncUrl=""; try{ syncUrl=localStorage.getItem(SYNC_KEY)||""; }catch(e){}
+  let syncPollTimer=null, syncPushTimer=null, syncLastRev=-1, syncApplying=false, syncConnected=false, syncPushPending=false;
+  function syncSetStatus(txt,cls){
+    const el=$("syncStatus"); if(el){ el.textContent=txt; el.className="sync-status"+(cls?(" "+cls):""); }
+    const dot=$("syncDot"); if(dot) dot.className="sync-dot"+(cls==="ok"?" on":"");
+  }
+  function hhmmLocal(){ const d=new Date(); return pad(d.getHours())+":"+pad(d.getMinutes()); }
+  function applyRemote(board){
+    syncApplying=true;
+    const keepDay=state.activeDay, keepPlat=state.activePlatoon; // day/platoon selection stays per-device
+    state=migrateState(board);
+    if(typeof keepDay==="number" && keepDay>=0 && keepDay<CAMP_DAYS.length) state.activeDay=keepDay;
+    state.activePlatoon=(typeof keepPlat==="number" && keepPlat>=0 && keepPlat<state.platoons.length)?keepPlat:0;
+    hydrateInputs(); renderAll();
+    try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
+    syncApplying=false;
+  }
+  async function syncPull(){
+    if(!syncUrl) return;
+    let txt;
+    try{ const r=await fetch(syncUrl,{method:"GET"}); txt=await r.text(); }
+    catch(e){ syncSetStatus("offline \u2014 retrying","warn"); return; }
+    let env; try{ env=JSON.parse(txt); }catch(e){ return; }
+    if(!env||typeof env!=="object") return;
+    const rev=+(env._rev||0), board=env.board;
+    if(rev>syncLastRev){
+      syncLastRev=rev;
+      // apply others' changes, but not our own echo, and not on top of a pending local write
+      if(board && typeof board==="object" && board._by!==myDeviceId && !syncPushPending){ applyRemote(board); }
+    }
+    syncSetStatus("synced "+hhmmLocal(),"ok");
+  }
+  function syncPush(){
+    if(!syncUrl||syncApplying) return;
+    syncPushPending=true;
+    clearTimeout(syncPushTimer);
+    syncPushTimer=setTimeout(()=>{
+      state._by=myDeviceId; state._ts=Date.now();
+      syncSetStatus("saving\u2026","");
+      fetch(syncUrl,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(state)})
+        .then(()=>{ syncPushPending=false; syncSetStatus("synced "+hhmmLocal(),"ok"); })
+        .catch(()=>{ syncPushPending=false; syncSetStatus("save failed \u2014 retrying","warn"); });
+    },700);
+  }
+  async function syncConnect(url){
+    url=(url||"").trim();
+    if(!/^https?:\/\/.+/.test(url)){ syncSetStatus("enter a valid https:// link","warn"); return; }
+    syncUrl=url; try{ localStorage.setItem(SYNC_KEY,syncUrl); }catch(e){}
+    syncConnected=true; $("syncConnect").textContent="Disconnect"; $("syncUrl").disabled=true;
+    syncSetStatus("connecting\u2026","");
+    let txt=""; try{ const r=await fetch(syncUrl,{method:"GET"}); txt=await r.text(); }
+    catch(e){ syncSetStatus("could not reach the sync link","warn"); }
+    let env=null; try{ env=txt?JSON.parse(txt):null; }catch(e){ env=null; }
+    const board=env&&env.board;
+    if(board && board.platoons){ syncLastRev=+(env._rev||0); applyRemote(board); syncSetStatus("joined shared board \u00b7 "+hhmmLocal(),"ok"); }
+    else { syncLastRev=+((env&&env._rev)||0); syncPush(); syncSetStatus("sharing this board \u00b7 "+hhmmLocal(),"ok"); }
+    clearInterval(syncPollTimer); syncPollTimer=setInterval(syncPull,4000);
+  }
+  function syncDisconnect(){
+    syncConnected=false; syncUrl=""; try{ localStorage.removeItem(SYNC_KEY); }catch(e){}
+    clearInterval(syncPollTimer); clearTimeout(syncPushTimer); syncPushPending=false;
+    $("syncConnect").textContent="Connect"; $("syncUrl").disabled=false;
+    syncSetStatus("not connected","");
+  }
+
   // ---------- DTG clock ----------
   function dtg(d){ return pad(d.getUTCDate())+pad(d.getUTCHours())+pad(d.getUTCMinutes())+"Z "+MON[d.getUTCMonth()]+" "+String(d.getUTCFullYear()).slice(2); }
   function tickClock(){
@@ -1008,11 +1111,7 @@
       try{ obj=JSON.parse(String(fr.result)); }catch(e){ boardNote("not a valid board file"); return; }
       if(!obj||typeof obj!=="object"||Array.isArray(obj)){ boardNote("not a valid board file"); return; }
       state=migrateState(obj);
-      $("campName").value=state.campName||"";
-      $("mDay").value=state.day||""; $("mOic").value=state.oic||""; $("mNco").value=state.nco||""; $("mWx").value=state.wx||"";
-      $("wxCoords").value=state.wxCoords||"";
-      $("heatInput").value=(state.wbgt!=null?state.wbgt:"");
-      const _st=$("soTitle"); if(_st) _st.textContent=state.campName||"";
+      hydrateInputs();
       renderAll();
       WX.load(); save(); boardNote("board loaded ✓");
     };
@@ -1187,16 +1286,15 @@
     state=migrateState(loaded);
     // on a fresh board, open the schedule to today's day of the week
     if(!loaded){ const gd=new Date().getDay(); const idx=(gd+1)%7; if(idx<CAMP_DAYS.length) state.activeDay=idx; }
-    $("campName").value=state.campName;
-    $("mDay").value=state.day; $("mOic").value=state.oic; $("mNco").value=state.nco; $("mWx").value=state.wx;
-    var _st=$("soTitle"); if(_st) _st.textContent=state.campName;
+    hydrateInputs();
     renderAll();
     tickClock(); setInterval(tickClock,1000);
     setInterval(refreshSchedStatuses,30000); // advance schedule statuses as time passes
-    $("wxCoords").value=state.wxCoords||"";
-    $("heatInput").value=(state.wbgt!=null?state.wbgt:"");
     WX.load();
     setInterval(()=>WX.load(),600000);
+    // live sync: reconnect if a link was saved on this device
+    $("syncConnect").addEventListener("click",()=>{ if(syncConnected) syncDisconnect(); else syncConnect($("syncUrl").value); });
+    if(syncUrl){ $("syncUrl").value=syncUrl; syncConnect(syncUrl); } else { syncSetStatus("not connected",""); }
     flash();
   })();
 })();

@@ -39,6 +39,9 @@ it works, online or offline.
 - **Incident Report Log** — one row per report; log incidents by hand.
 - **Copy SITREP** — one-tap plain-text situation report (accountability, who's
   not signed in, PERSTAT, schedule, incidents) ready to paste into an email or chat.
+- **Live Sync** *(new, optional)* — share one live board across multiple
+  computers through a small Google Apps Script you deploy once. See
+  [SYNC-SETUP.md](SYNC-SETUP.md).
 - **Kiosk mode** — full-screen with screen wake-lock for a wall display.
 
 ## Saving & moving the board between computers
@@ -55,11 +58,22 @@ it works, online or offline.
 
 ### Want a single live board that everyone sees at once?
 
-True real-time sync across several computers needs an online backend (for
-example a Google Apps Script tied to a Google Sheet, or Firebase). That's a
-larger add-on and needs a bit of account setup. It isn't wired up yet — the
-`Save file` / `Load file` flow above covers moving the board today. Ask and it
-can be added as a follow-up.
+Use **Live Sync** (the panel near the bottom of the board). Several computers
+share one board that updates on all of them within a few seconds — roster
+sign-in, incidents, heat flag, schedule edits, and header fields all sync. Each
+device keeps its own day/platoon *view*.
+
+It runs through a tiny **Google Apps Script** you deploy once (free, uses your
+existing Google account, no Google Sheet needed). Paste the resulting link into
+the Live Sync box on each computer and press **Connect**. Full step-by-step
+setup is in **[SYNC-SETUP.md](SYNC-SETUP.md)**; the script is in
+**[`sync/Code.gs`](sync/Code.gs)**.
+
+> The sync link lets anyone who has it read and edit the board (including camper
+> names), so share it only with your camp staff.
+
+If you'd rather not set that up, the `Save file` / `Load file` buttons still let
+you move a board between computers by hand.
 
 ## First-time setup
 
