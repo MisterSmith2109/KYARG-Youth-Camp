@@ -117,6 +117,9 @@
     cursor:pointer;width:26px;height:26px;line-height:1;font-size:12px;padding:0}
   .collapse-btn:hover{border-color:var(--olive-bright);color:var(--ink)}
   .panel.collapsed .panel-body{display:none}
+  .wx-panel.collapsed .wx-body{display:none}
+  .sort-lite{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+  .sort-lite select{width:auto;font-family:var(--sans);font-size:13px;text-transform:none;letter-spacing:0;padding:5px 6px}
  
   table{width:100%;border-collapse:collapse;font-size:14px}
   th{
@@ -468,7 +471,6 @@
       <h2>Roster &bull; Sign-In</h2>
       <div class="head-right">
         <span class="roster-count-head" id="rosterCountHead"></span>
-        <button class="collapse-btn" id="rosterCollapse" title="Minimize / expand" aria-label="Minimize roster">&#9662;</button>
       </div>
     </div>
     <div class="panel-body">
@@ -477,6 +479,15 @@
         <input id="rosterAdd" placeholder="Type a name and press Enter to add &amp; sign in">
         <button class="btn2" id="rInAll">Sign all in</button>
         <button class="btn2" id="rOutAll">Sign all out</button>
+        <label class="sort-lite">Sort:
+          <select id="rosterSort">
+            <option value="added">Added</option>
+            <option value="name">Name</option>
+            <option value="group">Group</option>
+            <option value="role">Role</option>
+            <option value="status">Status</option>
+          </select>
+        </label>
         <span class="roster-count" id="rosterCount"></span>
       </div>
       <div class="tbl-scroll">
@@ -835,12 +846,28 @@
  
   // ---------- render roster ----------
   const ROLES=["Camper","Staff","Volunteer","Cadre","Support"];
+  const STATUS_RANK={In:0,Out:1,Absent:2};
+  // Returns roster rows in the chosen display order, keeping each row's original index (for editing).
+  function rosterSorted(){
+    const list=(state.roster||[]).map((r,i)=>({r:r,i:i}));
+    const key={
+      name:e=>String(e.r.name||"").toLowerCase(),
+      group:e=>String(e.r.group||"").toLowerCase(),
+      role:e=>String(e.r.role||""),
+      status:e=>STATUS_RANK[e.r.status]!=null?STATUS_RANK[e.r.status]:1
+    }[rosterSortMode];
+    if(key){
+      list.sort((a,b)=>{ const ka=key(a), kb=key(b); if(ka<kb) return -1; if(ka>kb) return 1; return a.i-b.i; });
+    }
+    return list;
+  }
   function renderRoster(){
     const b=$("rosterBody"); b.innerHTML="";
+    if($("rosterSort") && $("rosterSort").value!==rosterSortMode) $("rosterSort").value=rosterSortMode;
     if((state.roster||[]).length===0){
       b.innerHTML='<tr><td colspan="6" class="inc-empty">No one on the roster yet. Type a name above, or use &ldquo;+ Add person&rdquo;.</td></tr>';
     }else{
-      state.roster.forEach((r,i)=>{
+      rosterSorted().forEach(({r,i})=>{
         const st=r.status||"Out";
         const cls=st==="In"?"r-in":(st==="Absent"?"r-absent":"r-out");
         const toIn=st!=="In";
@@ -1003,16 +1030,11 @@
   });
 
   // roster + schedule buttons
-  // Minimize / expand the roster (a per-device view preference, not synced).
-  const ROSTER_COLLAPSE_KEY="kyarng-roster-collapsed";
-  function setRosterCollapsed(on){
-    const panel=$("rosterPanel"); if(!panel) return;
-    panel.classList.toggle("collapsed", !!on);
-    const btn=$("rosterCollapse"); if(btn){ btn.innerHTML = on ? "&#9656;" : "&#9662;"; btn.setAttribute("aria-label", on?"Expand roster":"Minimize roster"); }
-    try{ localStorage.setItem(ROSTER_COLLAPSE_KEY, on?"1":"0"); }catch(e){}
-  }
-  $("rosterCollapse").addEventListener("click",()=>{ setRosterCollapsed(!$("rosterPanel").classList.contains("collapsed")); });
-  try{ if(localStorage.getItem(ROSTER_COLLAPSE_KEY)==="1") setRosterCollapsed(true); }catch(e){}
+  // Roster sort (a per-device view preference; sorts the display, never the stored order).
+  const ROSTER_SORT_KEY="kyarng-roster-sort";
+  let rosterSortMode="added";
+  try{ rosterSortMode=localStorage.getItem(ROSTER_SORT_KEY)||"added"; }catch(e){}
+  $("rosterSort").addEventListener("change",e=>{ rosterSortMode=e.target.value; try{ localStorage.setItem(ROSTER_SORT_KEY,rosterSortMode); }catch(e){} renderRoster(); });
 
   $("addRoster").addEventListener("click",()=>{ state.roster.push({name:"",group:"",role:"Camper",status:"Out",last:""}); renderRoster(); renderTiles(); save(); });
   $("rosterAdd").addEventListener("keydown",e=>{
@@ -1316,6 +1338,44 @@
     renderAll(); WX.load(); save();
   });
  
+  // ---------- collapsible panels (all of them; each remembers its own state per device) ----------
+  function collapseKey(panel){ return "collapse:"+panel.id; }
+  function refreshCollapseBtn(panel){
+    const btn=panel.querySelector(".collapse-btn"); if(!btn) return;
+    const on=panel.classList.contains("collapsed");
+    btn.innerHTML=on?"&#9656;":"&#9662;";
+    btn.setAttribute("aria-label", on?"Expand":"Minimize");
+  }
+  function togglePanel(panel){
+    const on=!panel.classList.contains("collapsed");
+    panel.classList.toggle("collapsed", on);
+    try{ localStorage.setItem(collapseKey(panel), on?"1":"0"); }catch(e){}
+    refreshCollapseBtn(panel);
+  }
+  function setupCollapsibles(){
+    document.querySelectorAll(".panel, .wx-panel").forEach(panel=>{
+      const head=panel.querySelector(":scope > .panel-head, :scope > .wx-head");
+      if(!head) return;
+      if(!panel.id){ const h2=head.querySelector("h2"); panel.id="panel-"+String(h2?h2.textContent:"x").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,""); }
+      let right=head.querySelector(":scope > .head-right, :scope > .wx-controls");
+      if(!right){
+        right=document.createElement("div"); right.className="head-right";
+        const h2=head.querySelector(":scope > h2");
+        Array.from(head.children).forEach(ch=>{ if(ch!==h2) right.appendChild(ch); });
+        head.appendChild(right);
+      }
+      if(!head.querySelector(".collapse-btn")){
+        const btn=document.createElement("button");
+        btn.type="button"; btn.className="collapse-btn"; btn.title="Minimize / expand";
+        right.appendChild(btn);
+        btn.addEventListener("click",()=>togglePanel(panel));
+      }
+      let saved=null; try{ saved=localStorage.getItem(collapseKey(panel)); }catch(e){}
+      if(saved==="1") panel.classList.add("collapsed");
+      refreshCollapseBtn(panel);
+    });
+  }
+
   // ---------- init ----------
   (async function init(){
     const loaded=await Store.load();
@@ -1324,6 +1384,7 @@
     if(!loaded){ const idx=todayIndex(); if(idx>=0&&idx<CAMP_DAYS.length) state.activeDay=idx; }
     hydrateInputs();
     renderAll();
+    setupCollapsibles();
     tickClock(); setInterval(tickClock,1000);
     setInterval(refreshSchedStatuses,30000); // advance schedule statuses as time passes
     WX.load();
