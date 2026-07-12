@@ -521,6 +521,18 @@
   const pad=n=>String(n).padStart(2,"0");
   const nowDTG=()=>{ const d=new Date(); return pad(d.getUTCDate())+pad(d.getUTCHours())+pad(d.getUTCMinutes())+"Z"; };
   const MON=["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+  // Camp local time zone. The board's local clock, schedule auto-status, and "today"
+  // all use this, so it stays correct no matter which time zone a computer is set to.
+  const CAMP_TZ="America/Chicago"; // Central Time (handles daylight saving automatically)
+  const WEEKDAY_IDX={Sat:0,Sun:1,Mon:2,Tue:3,Wed:4,Thu:5,Fri:6}; // matches CAMP_DAYS order
+  function campNow(){
+    const p={};
+    try{
+      new Intl.DateTimeFormat("en-US",{timeZone:CAMP_TZ,hour12:false,weekday:"short",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"})
+        .formatToParts(new Date()).forEach(x=>{ if(x.type!=="literal") p[x.type]=x.value; });
+    }catch(e){ const d=new Date(); return {h:d.getHours(),m:d.getMinutes(),day:d.getDate(),mon:d.getMonth()+1,dayIdx:(d.getDay()+1)%7}; }
+    return {h:parseInt(p.hour,10)%24, m:parseInt(p.minute,10), day:parseInt(p.day,10), mon:parseInt(p.month,10), dayIdx:WEEKDAY_IDX[p.weekday]};
+  }
  
   // ---------- default state ----------
   // ---------- camp week schedule (from the 2026 Youth Camp workbook) ----------
@@ -618,7 +630,7 @@
     const el=$("syncStatus"); if(el){ el.textContent=txt; el.className="sync-status"+(cls?(" "+cls):""); }
     const dot=$("syncDot"); if(dot) dot.className="sync-dot"+(cls==="ok"?" on":"");
   }
-  function hhmmLocal(){ const d=new Date(); return pad(d.getHours())+":"+pad(d.getMinutes()); }
+  function hhmmLocal(){ const c=campNow(); return pad(c.h)+":"+pad(c.m); }
   function applyRemote(board){
     syncApplying=true;
     const keepDay=state.activeDay, keepPlat=state.activePlatoon; // day/platoon selection stays per-device
@@ -682,7 +694,7 @@
   function tickClock(){
     const d=new Date();
     $("dtgZ").textContent=dtg(d);
-    $("dtgLocal").textContent="local "+pad(d.getHours())+pad(d.getMinutes())+" "+MON[d.getMonth()]+" "+pad(d.getDate());
+    const c=campNow(); $("dtgLocal").textContent="local "+pad(c.h)+pad(c.m)+" "+MON[c.mon-1]+" "+pad(c.day)+" CT";
   }
  
   // ---------- calc ----------
@@ -848,8 +860,8 @@
     if(m){ const s=hm(m[1]); if(s==null) return null; return {start:s,end:null}; }
     return null;
   }
-  function nowMinutes(){ const d=new Date(); return d.getHours()*60+d.getMinutes(); }
-  function todayIndex(){ return (new Date().getDay()+1)%7; } // CAMP_DAYS starts Saturday
+  function nowMinutes(){ const c=campNow(); return c.h*60+c.m; }
+  function todayIndex(){ return campNow().dayIdx; } // CAMP_DAYS starts Saturday, in camp time
   // Status of a schedule row for the currently selected day, from the live clock.
   function schStatus(row){
     const sel=state.activeDay||0, today=todayIndex();
@@ -923,7 +935,7 @@
         b.appendChild(tr);
       });
     }
-    const el=$("schToday"); if(el){ const d=new Date(); el.textContent=MON[d.getMonth()]+" "+pad(d.getDate()); }
+    const el=$("schToday"); if(el){ const c=campNow(); el.textContent=MON[c.mon-1]+" "+pad(c.day); }
   }
   // Re-evaluate status pills in place (no rebuild) so the clock advances them without stealing input focus.
   function refreshSchedStatuses(){
@@ -1285,7 +1297,7 @@
     const loaded=await Store.load();
     state=migrateState(loaded);
     // on a fresh board, open the schedule to today's day of the week
-    if(!loaded){ const gd=new Date().getDay(); const idx=(gd+1)%7; if(idx<CAMP_DAYS.length) state.activeDay=idx; }
+    if(!loaded){ const idx=todayIndex(); if(idx>=0&&idx<CAMP_DAYS.length) state.activeDay=idx; }
     hydrateInputs();
     renderAll();
     tickClock(); setInterval(tickClock,1000);
