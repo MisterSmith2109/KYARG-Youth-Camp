@@ -109,6 +109,14 @@
   }
   .panel-head .hint{font-family:var(--mono);font-size:11px;color:var(--muted)}
   .panel-body{padding:12px 14px}
+  /* Collapsible panel (Roster) */
+  .head-right{display:flex;align-items:center;gap:10px}
+  .roster-count-head{font-family:var(--mono);font-size:12px;color:var(--muted);white-space:nowrap}
+  .roster-count-head b{color:var(--olive-bright)}
+  .collapse-btn{background:transparent;border:1px solid var(--line-soft);border-radius:4px;color:var(--muted);
+    cursor:pointer;width:26px;height:26px;line-height:1;font-size:12px;padding:0}
+  .collapse-btn:hover{border-color:var(--olive-bright);color:var(--ink)}
+  .panel.collapsed .panel-body{display:none}
  
   table{width:100%;border-collapse:collapse;font-size:14px}
   th{
@@ -455,10 +463,13 @@
   </div>
 
   <!-- ROSTER / SIGN-IN -->
-  <div class="panel">
+  <div class="panel" id="rosterPanel">
     <div class="panel-head">
       <h2>Roster &bull; Sign-In</h2>
-      <span class="hint">in &middot; out &middot; absent</span>
+      <div class="head-right">
+        <span class="roster-count-head" id="rosterCountHead"></span>
+        <button class="collapse-btn" id="rosterCollapse" title="Minimize / expand" aria-label="Minimize roster">&#9662;</button>
+      </div>
     </div>
     <div class="panel-body">
       <div class="panel-sub">Sign campers and staff in and out. When anyone is on this roster, it drives the Accountability tile at the top of the board.</div>
@@ -846,7 +857,9 @@
       });
     }
     const rc=rosterCounts();
-    $("rosterCount").innerHTML="<b>"+rc.in+"</b> in · "+rc.out+" out"+(rc.absent?" · "+rc.absent+" absent":"")+" · "+rc.total+" total";
+    const summary="<b>"+rc.in+"</b> in · "+rc.out+" out"+(rc.absent?" · "+rc.absent+" absent":"")+" · "+rc.total+" total";
+    if($("rosterCount")) $("rosterCount").innerHTML=summary;
+    if($("rosterCountHead")) $("rosterCountHead").innerHTML=summary;
   }
 
   // ---------- schedule (per day × platoon) ----------
@@ -990,6 +1003,17 @@
   });
 
   // roster + schedule buttons
+  // Minimize / expand the roster (a per-device view preference, not synced).
+  const ROSTER_COLLAPSE_KEY="kyarng-roster-collapsed";
+  function setRosterCollapsed(on){
+    const panel=$("rosterPanel"); if(!panel) return;
+    panel.classList.toggle("collapsed", !!on);
+    const btn=$("rosterCollapse"); if(btn){ btn.innerHTML = on ? "&#9656;" : "&#9662;"; btn.setAttribute("aria-label", on?"Expand roster":"Minimize roster"); }
+    try{ localStorage.setItem(ROSTER_COLLAPSE_KEY, on?"1":"0"); }catch(e){}
+  }
+  $("rosterCollapse").addEventListener("click",()=>{ setRosterCollapsed(!$("rosterPanel").classList.contains("collapsed")); });
+  try{ if(localStorage.getItem(ROSTER_COLLAPSE_KEY)==="1") setRosterCollapsed(true); }catch(e){}
+
   $("addRoster").addEventListener("click",()=>{ state.roster.push({name:"",group:"",role:"Camper",status:"Out",last:""}); renderRoster(); renderTiles(); save(); });
   $("rosterAdd").addEventListener("keydown",e=>{
     if(e.key!=="Enter") return;
