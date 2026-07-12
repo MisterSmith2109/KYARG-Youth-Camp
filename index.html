@@ -120,6 +120,13 @@
   .wx-panel.collapsed .wx-body{display:none}
   .sort-lite{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
   .sort-lite select{width:auto;font-family:var(--sans);font-size:13px;text-transform:none;letter-spacing:0;padding:5px 6px}
+  /* Incident feed importer */
+  .feed-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+  .feed-row input[type=text],.feed-row input:not([type]){flex:1;min-width:220px;font-family:var(--mono);font-size:12px}
+  #feedUrl{flex:1;min-width:220px;font-family:var(--mono);font-size:12px}
+  .feed-status{font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap}
+  .chk{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);cursor:pointer;white-space:nowrap}
+  .chk input{width:auto}
  
   table{width:100%;border-collapse:collapse;font-size:14px}
   th{
@@ -506,6 +513,15 @@
   <div class="panel">
     <div class="panel-head"><h2>Incident Report Log</h2><span class="hint">each entry = 1 report</span></div>
     <div class="panel-body">
+      <div class="panel-sub">Log incidents by hand, or auto-import responses from your Google Form. Paste the form&rsquo;s <b>published CSV link</b> (in the sheet: File &rarr; Share &rarr; Publish to web &rarr; the responses tab &rarr; Comma-separated values). New responses drop in automatically. Deleting an imported entry keeps it from coming back.</div>
+      <div class="feed-row">
+        <input id="feedUrl" placeholder="Published responses CSV link">
+        <button class="btn2" id="feedConnect">Connect</button>
+        <button class="btn2" id="feedFileBtn">Load CSV file</button>
+        <input type="file" id="feedFile" accept=".csv,text/csv" style="display:none">
+        <label class="chk"><input type="checkbox" id="feedAuto"> Auto-import every 2 min</label>
+        <span class="feed-status" id="feedStatus"></span>
+      </div>
       <div id="incBody"></div>
       <button class="add-btn" id="addInc">+ Log incident</button>
     </div>
@@ -579,6 +595,7 @@
       {label:"Support", asg:0, pres:0}
     ],
     incidents:[],
+    feedUrl:"", feedAuto:false, importedKeys:[],
     roster:[],
     activeDay:0,
     activePlatoon:0,
@@ -640,6 +657,8 @@
     $("mDay").value=state.day||""; $("mOic").value=state.oic||""; $("mNco").value=state.nco||""; $("mWx").value=state.wx||"";
     $("wxCoords").value=state.wxCoords||"";
     $("heatInput").value=(state.wbgt!=null?state.wbgt:"");
+    if($("feedUrl")) $("feedUrl").value=state.feedUrl||"";
+    if($("feedAuto")) $("feedAuto").checked=!!state.feedAuto;
     const _st=$("soTitle"); if(_st) _st.textContent=state.campName||"";
   }
 
@@ -1037,6 +1056,91 @@
     renderInc(); renderTiles(); save();
   });
 
+  // ---------- incident feed: import Google Form responses (published CSV) ----------
+  function feedStatus(t){ const e=$("feedStatus"); if(e) e.textContent=t; }
+  function parseCSV(text){
+    const rows=[]; let row=[], field="", i=0, inQ=false;
+    text=text.replace(/\r\n/g,"\n").replace(/\r/g,"\n");
+    while(i<text.length){
+      const c=text[i];
+      if(inQ){ if(c==='"'){ if(text[i+1]==='"'){ field+='"'; i++; } else inQ=false; } else field+=c; }
+      else{ if(c==='"') inQ=true; else if(c===","){ row.push(field); field=""; } else if(c==="\n"){ row.push(field); rows.push(row); row=[]; field=""; } else field+=c; }
+      i++;
+    }
+    if(field.length>0||row.length>0){ row.push(field); rows.push(row); }
+    return rows;
+  }
+  function ingestCSV(txt,label){
+    const rows=parseCSV(txt);
+    if(rows.length<2){ feedStatus("no responses yet · "+hhmmLocal()); return 0; }
+    const H=rows[0].map(h=>String(h||"").toLowerCase().trim());
+    const col=(...names)=>{ for(const n of names){ const i=H.findIndex(h=>h.indexOf(n)>-1); if(i>-1) return i; } return -1; };
+    const iTS=col("timestamp"),
+          iDate=col("date of incident","date of","date"),
+          iTime=col("time of incident","time of","time"),
+          iName=col("camper involved","person involved","person/camper","name of person","camper","name"),
+          iAge=col("age"),
+          iGroup=col("platoon","camp / group","group","unit","squad"),
+          iType=col("type of incident","type","nature","category"),
+          iStat=col("status"),
+          iLoc=col("location","where"),
+          iMed=col("medical attention required","medical attention","medical","injury"),
+          iDesc=col("description","what happened","details","describe","remarks"),
+          iAct=col("action taken","action","response"),
+          iPar=col("parent notified","contact notified","parent/guardian","guardian","notified"),
+          iBy=col("notified by","reported by","submitted by","your name");
+    const get=(r,i)=>(i>-1&&r[i]!=null)?String(r[i]).trim():"";
+    const imported=new Set(state.importedKeys||[]);
+    let added=0;
+    for(let r=1;r<rows.length;r++){
+      const row=rows[r]; if(!row||row.join("").trim()==="") continue;
+      const key=(get(row,iTS)||("row"+r))+"|"+get(row,iName);
+      if(imported.has(key)) continue;
+      imported.add(key);
+      const st=get(row,iStat), med=get(row,iMed);
+      const typeParts=[]; const ty=get(row,iType); if(ty) typeParts.push(ty); if(st) typeParts.push(st); if(/yes|true/i.test(med)) typeParts.push("MEDICAL");
+      const nm=get(row,iName), ag=get(row,iAge), gp=get(row,iGroup);
+      const bits=[];
+      if(nm) bits.push(nm+(ag?" ("+ag+")":"")+(gp?", "+gp:""));
+      const loc=get(row,iLoc); if(loc) bits.push("@ "+loc);
+      const desc=get(row,iDesc); if(desc) bits.push(desc);
+      const act=get(row,iAct); if(act) bits.push("Action: "+act);
+      const par=get(row,iPar); if(par) bits.push("Parent notified: "+par);
+      const by=get(row,iBy); if(by) bits.push("by "+by);
+      const tstamp=(get(row,iDate)+" "+get(row,iTime)).trim()||get(row,iTS);
+      state.incidents.push({ time:tstamp, type:typeParts.join(" · ")||"Incident", remarks:bits.join(" — "), status:"Open", src:"form" });
+      added++;
+    }
+    state.importedKeys=Array.from(imported);
+    if(added>0){ renderInc(); renderTiles(); }
+    save();
+    feedStatus((added>0?("+"+added+" new"):"up to date")+" · "+(label||hhmmLocal()));
+    return added;
+  }
+  async function importFeed(){
+    const url=(state.feedUrl||"").trim();
+    if(!url){ feedStatus("paste a published CSV link, or use Load CSV file"); return; }
+    feedStatus("checking…");
+    try{
+      const txt=await fetch(url).then(r=>{ if(!r.ok) throw 0; return r.text(); });
+      ingestCSV(txt,hhmmLocal());
+    }catch(e){ feedStatus("feed unreachable — check the link is published to the web"); }
+  }
+  function importFile(file){
+    if(!file) return;
+    const fr=new FileReader();
+    fr.onload=()=>{ try{ ingestCSV(String(fr.result),"from file"); }catch(e){ feedStatus("could not read that CSV"); } };
+    fr.onerror=()=>feedStatus("could not read that file");
+    fr.readAsText(file);
+  }
+  let feedTimer=null;
+  function startFeed(){ clearInterval(feedTimer); if(state.feedAuto){ feedTimer=setInterval(importFeed,120000); } }
+  $("feedUrl").addEventListener("input",e=>{ state.feedUrl=e.target.value; save(); });
+  $("feedConnect").addEventListener("click",()=>{ state.feedUrl=$("feedUrl").value.trim(); save(); importFeed(); });
+  $("feedAuto").addEventListener("change",e=>{ state.feedAuto=e.target.checked; save(); startFeed(); if(e.target.checked) importFeed(); });
+  $("feedFileBtn").addEventListener("click",()=>$("feedFile").click());
+  $("feedFile").addEventListener("change",e=>{ importFile(e.target.files[0]); e.target.value=""; });
+
   // roster + schedule buttons
   // Roster sort (a per-device view preference; sorts the display, never the stored order).
   const ROSTER_SORT_KEY="kyarng-roster-sort";
@@ -1397,6 +1501,8 @@
     setInterval(refreshSchedStatuses,30000); // advance schedule statuses as time passes
     WX.load();
     setInterval(()=>WX.load(),600000);
+    // incident feed: start auto-import if it was on
+    if(state.feedAuto){ startFeed(); importFeed(); }
     // live sync: reconnect if a link was saved on this device
     $("syncConnect").addEventListener("click",()=>{ if(syncConnected) syncDisconnect(); else syncConnect($("syncUrl").value); });
     if(syncUrl){ $("syncUrl").value=syncUrl; syncConnect(syncUrl); } else { syncSetStatus("not connected",""); }

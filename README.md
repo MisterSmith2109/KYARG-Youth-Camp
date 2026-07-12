@@ -36,7 +36,11 @@ it works, online or offline.
   passes (the current day of the week runs live; past days read Done, future
   days Upcoming). Rename, add, and remove platoons; edit any activity. On a fresh
   board it opens to today's day of the week.
-- **Incident Report Log** — one row per report; log incidents by hand.
+- **Incident Report Log** — one row per report. Log incidents by hand, or
+  **auto-import** them from a Google Form: paste the responses sheet's
+  *published CSV* link and new submissions drop in automatically (deduped;
+  deleting an imported entry keeps it from returning). Columns are auto-detected,
+  so it adapts to your form. A "Load CSV file" button is a manual fallback.
 - **Copy SITREP** — one-tap plain-text situation report (accountability, who's
   not signed in, PERSTAT, schedule, incidents) ready to paste into an email or chat.
 - **Live Sync** *(new, optional)* — share one live board across multiple
@@ -86,7 +90,10 @@ you move a board between computers by hand.
    the campers choose names, and tweak any activities as needed.
 5. In **Heat Condition · WBGT**, enter a meter reading or press *Use weather
    estimate* to set the heat flag for the day.
-6. Log any incidents by hand in the **Incident Report Log**.
+6. In the **Incident Report Log**, log incidents by hand or connect your Google
+   Form: publish the responses sheet to the web as CSV (File → Share → Publish to
+   web → the responses tab → CSV), paste that link, and tick *Auto-import*. New
+   form submissions then appear on the board automatically.
 7. Click **Save file** whenever you want a portable backup.
 
 ## Notes
