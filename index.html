@@ -245,7 +245,13 @@
   .sign-btn.to-out{color:var(--amber);border-color:var(--amber)}
   td.sign{width:96px}
   .tbl-scroll{overflow-x:auto}
-  /* Daily schedule — platoon tabs */
+  /* Daily schedule — day + platoon tabs */
+  .picker-label{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:2px 0 5px}
+  .dtab-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+  .dtab{background:var(--panel-2);border:1px solid var(--line);color:var(--muted);border-radius:5px;
+    padding:6px 12px;cursor:pointer;font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.04em;white-space:nowrap}
+  .dtab:hover{border-color:var(--olive-bright);color:var(--ink)}
+  .dtab.active{background:var(--olive-bright);border-color:var(--olive-bright);color:#12140f}
   .ptab-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
   .ptab{background:var(--panel-2);border:1px solid var(--line);color:var(--muted);border-radius:5px;
     padding:6px 12px;cursor:pointer;font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.06em;white-space:nowrap}
@@ -254,6 +260,8 @@
   .ptab-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
   .ptab-tools .fld-k{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
   .pt-name-input{width:auto;flex:0 1 200px;min-width:140px;font-weight:700}
+  #schBody td:first-child{width:104px}
+  #schBody td:first-child input{font-family:var(--mono);font-size:13px}
   tr.now-row td{background:rgba(168,184,106,.12)}
   .sch-Now{color:#0f1a0e;background:var(--olive-bright);border-color:var(--olive-bright)}
   .sch-Done{color:var(--muted);background:var(--panel-2);border-color:var(--line-soft)}
@@ -437,7 +445,10 @@
       <span class="hint" id="schToday"></span>
     </div>
     <div class="panel-body">
-      <div class="panel-sub">Each platoon has its own schedule. Pick a platoon below, rename it if needed, and edit its activities. Set an item to &ldquo;Now&rdquo; to highlight the current event.</div>
+      <div class="panel-sub">Pick a <b>day</b>, then a <b>platoon</b>, to see that platoon&rsquo;s schedule. Rename platoons as needed; set an item to &ldquo;Now&rdquo; to highlight the current event.</div>
+      <div class="picker-label">Day</div>
+      <div class="dtab-row" id="dtabRow"></div>
+      <div class="picker-label">Platoon</div>
       <div class="ptab-row" id="ptabRow"></div>
       <div class="ptab-tools">
         <span class="fld-k">Platoon name</span>
@@ -486,22 +497,13 @@
   const MON=["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
  
   // ---------- default state ----------
-  // Base platoon names (NATO phonetic); the camp renames these later.
-  const NATO=["Alpha","Bravo","Charlie","Delta","Echo","Foxtrot","Golf","Hotel"];
-  function defaultDay(){
-    return [
-      {time:"0600", activity:"Reveille / Wake-up", loc:"Barracks", status:"Upcoming"},
-      {time:"0630", activity:"PT / Morning Formation", loc:"Field", status:"Upcoming"},
-      {time:"0730", activity:"Breakfast", loc:"Dining Facility", status:"Upcoming"},
-      {time:"0900", activity:"Morning Training / Classes", loc:"Field", status:"Upcoming"},
-      {time:"1200", activity:"Lunch", loc:"Dining Facility", status:"Upcoming"},
-      {time:"1300", activity:"Afternoon Activities", loc:"Range / Field", status:"Upcoming"},
-      {time:"1730", activity:"Dinner", loc:"Dining Facility", status:"Upcoming"},
-      {time:"1900", activity:"Evening Program", loc:"Assembly Area", status:"Upcoming"},
-      {time:"2100", activity:"Final Accountability", loc:"Barracks", status:"Upcoming"},
-      {time:"2200", activity:"Lights Out", loc:"Barracks", status:"Upcoming"}
-    ];
-  }
+  // ---------- camp week schedule (from the 2026 Youth Camp workbook) ----------
+  const CAMP_DAYS=["Saturday","Sunday","Monday","Tuesday","Wednesday","Thursday","Friday"];
+  const CAMP_PLATOONS=["Alpha","Bravo","Charlie","Delta","Echo","Foxtrot","Golf","Hotel"];
+  const CAMP_SCHED={"Alpha":{"Saturday":[["1000","VOLUNTEERS ARRIVE"],["1000-1030","ENERGIZERS"],["1030-1130","STAFF/ VOLUNTEER TRAINING"],["1130-1200","TRAVEL"],["1200-1300","LUNCH"],["1300-1330","TRAVEL"],["1300-1630","STAFF TRAINING"],["1630-1715","TRAVEL VOUCHERS"],["1715-1730","TRAVEL"],["1730-1800","DINNER"],["1800-1900","CAMP TOUR"],["1900-2100","CAMP PREPARATION"]],"Sunday":[["0700-0730","WAKE-UP/ PERSONAL HYGENIE"],["0730-0800","TRAVEL"],["0800-0900","BREAKFAST"],["0900-0930","TRAVEL"],["0930-1100","PREPARE FOR CAMPER ARRIVAL (CABINS, TENTS, ETC.)"],["1100-1130","TRAVEL"],["1130-1200","LUNCH"],["1200-1230","TRAVEL"],["1230-1300","STAGE FOR CAMPER ARRIVAL"],["1300-1430","CAMPER ARRIVAL"],["1430-1545","SETTLE INTO CABIN"],["1545-1615","Travel"],["1615-1645","Formation/ orientation"],["1645-1745","DINNER"],["1745-1845","D&C CLASS"],["1845-1900","Travel"],["1900-1915","Flag Formation"],["1915-1930","Travel"],["1930-2030","Sally"],["2030-2115","Travel and Showers"],["2115-2200","Lights Out"]],"Monday":[["0630-0715","Wake-Up / Personal Hygiene"],["0715-0730","Travel"],["0730-0750","Flag Formation: Charlie"],["0750-0800","Travel"],["0800-0840","Clean cabin and bathroom"],["0845-0925","Breakfast"],["0925-0945","Travel"],["0945-1145","Pool"],["1145-1200","Travel"],["1200-1240","Travel and change"],["1245-1325","Lunch"],["1325-1340","Travel"],["1340-1425","Water Games"],["1425-1445","Travel"],["1445-1645","Rock Climbing"],["1645-1700","Travel"],["1700-1740","Dinner*"],["1745-1825","D&C Practice"],["1825-1830","Travel"],["1830-1845","Flag Formation: Golf"],["1845-1925","Capture the Flag"],["1925-1930","Travel"],["1930-2000","Sally"],["2000-2045","Travel and Showers"],["2045-2130","Lights Out"]],"Tuesday":[["0630-0715","Wake-Up / Personal Hygiene"],["0715-0730","Travel"],["0730-0750","Flag Formation: Foxtrot"],["0750-0800","Travel"],["0800-0840","Breakfast"],["0845-0925","Clean cabin"],["0925-0945","Travel"],["0945-1145","Low Elements"],["1200-1240","Lunch"],["1245-1325","D&C Practice"],["1325-1340","Travel"],["1340-1425","Nap"],["1425-1445","Travel"],["1445-1645","Rappelling"],["1645-1700","Travel"],["1700-1740","Dinner*"],["1745-1825","Gaga Ball"],["1825-1830","Travel"],["1830-1845","Flag Formation: Bravo"],["1845-2000","Organized Mass Choas"],["2000-2045","Travel and Showers"],["2045-2130","Lights Out"]],"Wednesday":[["0630-0720","Wake-Up / Personal Hygiene"],["0720-0730","Travel"],["0730-0750","Flag Formation: Alpha"],["0750-0800","Travel"],["0800-0840","Clean cabin"],["0845-0925","Breakfast*"],["0925-0945","Travel"],["0945-1145","Zipline"],["1145-1200","Travel"],["1200-1245","Lunch"],["1245-1325","D&C Practice"],["1325-1340","Travel"],["1340-1425","Nap"],["1425-1445","Travel"],["1445-1645","Field Games"],["1645-1700","Travel"],["1700-1740","Dinner"],["1745-1825","Gaga Balll"],["1830-1835","Travel"],["1835-1845","Flag Formation: Echo"],["1845-1900","Travel"],["1900-2025","POOL"],["2030-2130","Travel and Showers"],["2140-2215","Lights Out"]],"Thursday":[["0630-0715","Wake-Up / Personal Hygiene"],["0720-0730","Travel"],["0730-0750","Flag Formation: Hotel"],["0750-0800","Travel"],["0800-0840","Breakfast"],["0845-0925","Clean cabin"],["0925-0945","Travel"],["0945-1145","Lake"],["1200-1245","Tavel and change"],["1245-1325","Lunch"],["1325-1330","Travel"],["1330 - 1345","Group Photo with Helicopter"],["1345-1425","Nap"],["1425-1445","Travel"],["1445-1645","Canoes"],["1645-1700","Travel"],["1700-1740","D&C Practice"],["1745-1825","Dinner"],["1830-1835","Travel"],["1835-1845","Flag Formation: Delta"],["1845-1900","Travel"],["1900-2000","D&C SHOWCASE AND AWARDS"],["2000-2005","Travel"],["2005-2100","Sally"],["2100-2145","Travel and Showers"],["2145-2230","Lights Out"]],"Friday":[["0630-0715","Wake-Up / Personal Hygiene"],["0715-0730","Travel"],["0730-0750","Flag Formation: 1 Boy, 1 Girl from each platoon"],["0750-0830","BREAKFAST"],["0830-0910","CLEAN CABIN"],["0910-0925","Travel"],["0925-1000","CLEAN CABIN"],["1000-1100","Outprocessing"],["1100-1300","Outprocessing adults"]]},"Bravo":{"Saturday":[["1000","VOLUNTEERS ARRIVE"],["1000-1030","ENERGIZERS"],["1030-1130","STAFF/ VOLUNTEER TRAINING"],["1130-1200","TRAVEL"],["1200-1300","LUNCH"],["1300-1330","TRAVEL"],["1300-1630","STAFF TRAINING"],["1630-1715","TRAVEL VOUCHERS"],["1715-1730","TRAVEL"],["1730-1800","DINNER"],["1800-1900","CAMP TOUR"],["1900-2100","CAMP PREPARATION"]],"Sunday":[["0700-0730","WAKE-UP/ PERSONAL HYGENIE"],["0730-0800","TRAVEL"],["0800-0900","BREAKFAST"],["0900-0930","TRAVEL"],["0930-1100","PREPARE FOR CAMPER ARRIVAL (CABINS, TENTS, ETC.)"],["1100-1130","TRAVEL"],["1130-1200","LUNCH"],["1200-1230","TRAVEL"],["1230-1300","STAGE FOR CAMPER ARRIVAL"],["1300-1430","CAMPER ARRIVAL"],["1430-1545","SETTLE INTO CABIN"],["1545-1615","Travel"],["1615-1645","Formation/ orientation"],["1645-1745","DINNER"],["1745-1845","D&C CLASS"],["1845-1900","Travel"],["1900-1915","Flag Formation"],["1915-1930","Travel"],["1930-2030","Sally"],["2030-2115","Travel and Showers"],["2115-2200","Lights Out"]],"Monday":[["0630-0715","Wake-Up / Personal Hygiene"],["0715-0730","Travel"],["0730-0750","Flag Formation: Charlie"],["0750-0800","Travel"],["0800-0840","Clean cabin"],["0845-0925","Breakfast"],["0925-0945","Travel"],["0945-1145","Pool"],["1145-1200","Travel"],["1200-1240","Travel and change"],["1245-1325","Lunch*"],["1325-1340","Travel"],["1340-1425","Field Games"],["1425-1445","Travel"],["1445-1645","Zipline"],["1645-1700","Travel"],["1700-1740","Dinner"],["1745-1825","D&C Practice"],["1825-1830","Travel"],["1830-1845","Flag Formation: Golf"],["1845-1925","Capture the Flag"],["1925-1930","Travel"],["1930-2000","Sally"],["2000-2045","Travel and Showers"],["2045-2130","Lights Out"]],"Tuesday":[["0630-0715","Wake-Up / Personal Hygiene"],["0715-0730","Travel"],["0730-0750","Flag Formation: Foxtrot"],["0750-0800","Travel"],["0800-0840","Breakfast*"],["0845-0925","Clean cabin and bathroom"],["0925-0945","Travel"],["0945-1145","Canoes"],["1200-1240","D&C Practice"],["1245-1325","Lunch"],["1325-1340","Travel"],["1340-1425","Nap"],["1425-1445","Travel"],["1445-1645","Dangle Duo"],["1645-1700","Travel"],["1700-1740","Dinner"],["1745-1825","Gaga Ball"],["1825-1830","Travel"],["1830-1845","Flag Formation: Bravo"],["1845-2000","Organized Mass Choas"],["2000-2045","Travel and Showers"],["2045-2130","Lights Out"]],"Wednesday":[["0630-0720","Wake-Up / Personal Hygiene"],["0720-0730","Travel"],["0730-0750","Flag Formation: Alpha"],["0750-0800","Travel"],["0800-0840","Breakfast"],["0845-0925","Clean cabin"],["0925-0945","Travel"],["0945-1145","Rappelling"],["1145-1200","Travel"],["1200-1245","Lunch"],["1245-1325","D&C Practice"],["1325-1340","Travel"],["1340-1425","Lake"],["1425-1445","Travel"],["1445-1645","Low Elements"],["1645-1700","Travel"],["1700-1740","Dinner*"],["1745-1825","Gaga Balll"],["1830-1835","Travel"],["1835-1845","Flag Formation: Echo"],["1845-1900","Travel"],["1900-2025","POOL"],["2030-2130","Travel and Showers"],["2140-2215","Lights Out"]],"Thursday":[["0630-0715","Wake-Up / Personal Hygiene"],["0720-0730","Travel"],["0730-0750","Flag Formation: Hotel"],["0750-0800","Travel"],["0800-0840","Breakfast"],["0845-0925","Clean cabin"],["0925-0945","Travel"],["0945-1145","Rock Climbing"],["1200-1245","Lunch"],["1245-1325","D&C Practice"],["1325-1330","Travel"],["1330 - 1345","Group Photo with Helicopter"],["1345-1425","Nap"],["1425-1445","Travel"],["1445-1645","Water Games"],["1645-1700","Travel"],["1700-1740","D&C Practice"],["1745-1825","Dinner*"],["1830-1835","Travel"],["1835-1845","Flag Formation: Delta"],["1845-1900","Travel"],["1900-2000","D&C SHOWCASE AND AWARDS"],["2000-2005","Travel"],["2005-2100","Sally"],["2100-2145","Travel and Showers"],["2145-2230","Lights Out"]],"Friday":[["0630-0715","Wake-Up / Personal Hygiene"],["0715-0730","Travel"],["0730-0750","Flag Formation: 1 Boy, 1 Girl from each platoon"],["0750-0830","CLEAN CABIN"],["0830-0910","BREAKFAST"],["0910-0925","Travel"],["0925-1000","CLEAN CABIN"],["1000-1100","Outprocessing"],["1100-1300","Outprocessing adults"]]},"Charlie":{"Saturday":[["1000","VOLUNTEERS ARRIVE"],["1000-1030","ENERGIZERS"],["1030-1130","STAFF/ VOLUNTEER TRAINING"],["1130-1200","TRAVEL"],["1200-1300","LUNCH"],["1300-1330","TRAVEL"],["1300-1630","STAFF TRAINING"],["1630-1715","TRAVEL VOUCHERS"],["1715-1730","TRAVEL"],["1730-1800","DINNER"],["1800-1900","CAMP TOUR"],["1900-2100","CAMP PREPARATION"]],"Sunday":[["0700-0730","WAKE-UP/ PERSONAL HYGENIE"],["0730-0800","TRAVEL"],["0800-0900","BREAKFAST"],["0900-0930","TRAVEL"],["0930-1100","PREPARE FOR CAMPER ARRIVAL (CABINS, TENTS, ETC.)"],["1100-1130","TRAVEL"],["1130-1200","LUNCH"],["1200-1230","TRAVEL"],["1230-1300","STAGE FOR CAMPER ARRIVAL"],["1300-1430","CAMPER ARRIVAL"],["1430-1545","SETTLE INTO CABIN"],["1545-1615","Travel"],["1615-1645","Formation/ orientation"],["1645-1745","CANTEEN GAMES"],["1745-1845","DINNER"],["1845-1900","Travel"],["1900-1915","Flag Formation"],["1915-1930","Travel"],["1930-2030","Sally"],["2030-2115","D&C CLASS"],["2115-2200","Travel and Showers"],["2200","Lights Out"]],"Monday":[["0630-0715","Wake-Up / Personal Hygiene"],["0715-0730","Travel"],["0730-0750","Flag Formation: Charlie"],["0750-0800","Travel"],["0800-0840","Clean cabin"],["0845-0925","Breakfast*"],["0925-0945","Travel"],["0945-1145","Zipline"],["1145-1200","Travel"],["1200-1240","Lunch"],["1245-1325","D&C Practice"],["1325-1340","Travel"],["1340-1425","Nap"],["1425-1445","Travel"],["1445-1645","Canoes"],["1645-1700","Travel"],["1700-1740","D&C Practice"],["1745-1825","Dinner"],["1825-1830","Travel"],["1830-1845","Flag Formation: Golf"],["1845-1925","Capture the Flag"],["1925-1930","Travel"],["1930-2000","Sally"],["2000-2045","Teen Council discussion"],["2045-2130","Travel and Showers"]],"Tuesday":[["0630-0715","Wake-Up / Personal Hygiene"],["0715-0730","Travel"],["0730-0750","Flag Formation: Foxtrot"],["0750-0800","Travel"],["0800-0840","Breakfast"],["0845-0925","Clean cabin"],["0925-0945","Travel"],["0945-1145","Dangle Duo"],["1200-1240","Lunch*"],["1245-1325","D&C Practice"],["1325-1340","Travel"],["1340-1425","Water Games"],["1425-1445","Travel"],["1445-1645","Pool"],["1645-1700","Travel"],["1700-1740","Travel and change"],["1745-1825","Dinner"],["1825-1830","Travel"],["1830-1845","Flag Formation: Bravo"],["1845-2000","Organized Mass Choas"],["2000-2045","GOAL SETTING"],["2045-2130","Travel and Showers"]],"Wednesday":[["0630-0720","Wake-Up / Personal Hygiene"],["0720-0730","Travel"],["0730-0750","Flag Formation: Alpha"],["0750-0800","Travel"],["0800-0840","Clean cabin and bathroom"],["0845-0925","Breakfast"],["0925-0945","Travel"],["0945-1145","Low Elements"],["1145-1200","Travel"],["1200-1245","Lunch*"],["1245-1325","Gaga Balll"],["1325-1340","Travel"],["1340-1425","Field Games"],["1425-1445","Travel"],["1445-1645","Rock Climbing"],["1645-1700","Travel"],["1700-1740","D&C Practice"],["1745-1825","Dinner"],["1830-1835","Travel"],["1835-1845","Flag Formation: Echo"],["1845-1900","Travel"],["1900-2025","Gaga Balll/ Canteen Games"],["2030-2130","POOL"],["2140-2215","Travel and Showers"],["2230","Lights Out"]],"Thursday":[["0630-0715","Wake-Up / Personal Hygiene"],["0720-0730","Travel"],["0730-0750","Flag Formation: Hotel"],["0750-0800","Travel"],["0800-0840","Clean cabin"],["0845-0925","Breakfast"],["0925-0945","Travel"],["0945-1145","Lake"],["1200-1245","Tavel and change"],["1245-1325","Lunch*"],["1325-1330","Travel"],["1330 - 1345","Group Photo with Helicopter"],["1345-1425","Nap"],["1425-1445","Travel"],["1445-1645","Rappelling"],["1645-1700","Travel"],["1700-1740","Dinner"],["1745-1825","D&C Practice"],["1830-1835","Travel"],["1835-1845","Flag Formation: Delta"],["1845-1900","Travel"],["1900-2000","D&C SHOWCASE AND AWARDS"],["2000-2005","Travel"],["2005-2100","Sally"],["2100-2145","Sally"],["2145-2230","Travel and Showers"],["2230","Lights Out"]],"Friday":[["0630-0715","Wake-Up / Personal Hygiene"],["0715-0730","Travel"],["0730-0750","Flag Formation: 1 Boy, 1 Girl from each platoon"],["0750-0830","CLEAN CABIN"],["0830-0910","BREAKFAST"],["0910-0925","Travel"],["0925-1000","CLEAN CABIN"],["1000-1100","Outprocessing"],["1100-1300","Outprocessing adults"]]},"Delta":{"Saturday":[["1000","VOLUNTEERS ARRIVE"],["1000-1030","ENERGIZERS"],["1030-1130","STAFF/ VOLUNTEER TRAINING"],["1130-1200","TRAVEL"],["1200-1300","LUNCH"],["1300-1330","TRAVEL"],["1300-1630","STAFF TRAINING"],["1630-1715","TRAVEL VOUCHERS"],["1715-1730","TRAVEL"],["1730-1800","DINNER"],["1800-1900","CAMP TOUR"],["1900-2100","CAMP PREPARATION"]],"Sunday":[["0700-0730","WAKE-UP/ PERSONAL HYGENIE"],["0730-0800","TRAVEL"],["0800-0900","BREAKFAST"],["0900-0930","TRAVEL"],["0930-1100","PREPARE FOR CAMPER ARRIVAL (CABINS, TENTS, ETC.)"],["1100-1130","TRAVEL"],["1130-1200","LUNCH"],["1200-1230","TRAVEL"],["1230-1300","STAGE FOR CAMPER ARRIVAL"],["1300-1430","CAMPER ARRIVAL"],["1430-1545","SETTLE INTO CABIN"],["1545-1615","Travel"],["1615-1645","Formation/ orientation"],["1645-1745","CANTEEN GAMES"],["1745-1845","DINNER*"],["1845-1900","Travel"],["1900-1915","Flag Formation"],["1915-1930","Travel"],["1930-2030","Sally"],["2030-2115","D&C CLASS"],["2115-2200","Travel and Showers"],["2200","Lights Out"]],"Monday":[["0630-0715","Wake-Up / Personal Hygiene"],["0715-0730","Travel"],["0730-0750","Flag Formation: Charlie"],["0750-0800","Travel"],["0800-0840","Breakfast"],["0845-0925","Clean cabin"],["0925-0945","Travel"],["0945-1145","Rock Climbing"],["1145-1200","Travel"],["1200-1240","D&C Practice"],["1245-1325","Lunch"],["1325-1340","Travel"],["1340-1425","Nap"],["1425-1445","Travel"],["1445-1645","Canoes"],["1645-1700","Travel"],["1700-1740","D&C Practice"],["1745-1825","Dinner"],["1825-1830","Travel"],["1830-1845","Flag Formation: Golf"],["1845-1925","Capture the Flag"],["1925-1930","Travel"],["1930-2000","Sally"],["2000-2045","Teen Council discussion"],["2045-2130","Travel and Showers"]],"Tuesday":[["0630-0715","Wake-Up / Personal Hygiene"],["0715-0730","Travel"],["0730-0750","Flag Formation: Foxtrot"],["0750-0800","Travel"],["0800-0840","Breakfast"],["0845-0925","Travel to HR"],["0925-0945","Travel"],["0945-1145","High Ropes (0845-1245)"],["1200-1240","Travel from HR"],["1245-1325","Lunch"],["1325-1340","Travel"],["1340-1425","Field Games"],["1425-1445","Travel"],["1445-1645","Pool"],["1645-1700","Travel"],["1700-1740","D&C Practice"],["1745-1825","Dinner"],["1825-1830","Travel"],["1830-1845","Flag Formation: Bravo"],["1845-2000","Organized Mass Choas"],["2000-2045","GOAL SETTING"],["2045-2130","Travel and Showers"]],"Wednesday":[["0630-0720","Wake-Up / Personal Hygiene"],["0720-0730","Travel"],["0730-0750","Flag Formation: Alpha"],["0750-0800","Travel"],["0800-0840","Breakfast"],["0845-0925","Travel to Caves"],["0925-0945","Travel"],["0945-1145","Caving (0845-1245)"],["1145-1200","Travel"],["1200-1245","Travel from Caves"],["1245-1325","Lunch"],["1325-1340","Travel"],["1340-1425","Water Games"],["1425-1445","Travel"],["1445-1645","Zipline"],["1645-1700","Travel"],["1700-1740","D&C Practice"],["1745-1825","Dinner*"],["1830-1835","Travel"],["1835-1845","Flag Formation: Echo"],["1845-1900","Travel"],["1900-2025","Gaga Balll/ Canteen Games"],["2030-2130","POOL"],["2140-2215","Travel and Showers"],["2230","Lights Out"]],"Thursday":[["0630-0715","Wake-Up / Personal Hygiene"],["0720-0730","Travel"],["0730-0750","Flag Formation: Hotel"],["0750-0800","Travel"],["0800-0840","Breakfast*"],["0845-0925","Clean cabin and bathroom"],["0925-0945","Travel"],["0945-1145","Rappelling"],["1200-1245","Lunch"],["1245-1325","D&C Practice"],["1325-1330","Travel"],["1330 - 1345","Group Photo with Helicopter"],["1345-1425","Nap"],["1425-1445","Travel"],["1445-1645","Dangle Duo"],["1645-1700","Travel"],["1700-1740","Dinner"],["1745-1825","D&C Practice"],["1830-1835","Travel"],["1835-1845","Flag Formation: Delta"],["1845-1900","Travel"],["1900-2000","D&C SHOWCASE AND AWARDS"],["2000-2005","Travel"],["2005-2100","Sally"],["2100-2145","Sally"],["2145-2230","Travel and Showers"],["2230","Lights Out"]],"Friday":[["0630-0715","Wake-Up / Personal Hygiene"],["0715-0730","Travel"],["0730-0750","Flag Formation: 1 Boy, 1 Girl from each platoon"],["0750-0830","BREAKFAST*"],["0830-0910","CLEAN CABIN"],["0910-0925","Travel"],["0925-1000","CLEAN CABIN"],["1000-1100","Outprocessing"],["1100-1300","Outprocessing adults"]]},"Echo":{"Saturday":[["1000","VOLUNTEERS ARRIVE"],["1000-1030","ENERGIZERS"],["1030-1130","STAFF/ VOLUNTEER TRAINING"],["1130-1200","TRAVEL"],["1200-1300","LUNCH"],["1300-1330","TRAVEL"],["1300-1630","STAFF TRAINING"],["1630-1715","TRAVEL VOUCHERS"],["1715-1730","TRAVEL"],["1730-1800","DINNER"],["1800-1900","CAMP TOUR"],["1900-2100","CAMP PREPARATION"]],"Sunday":[["0700-0730","WAKE-UP/ PERSONAL HYGENIE"],["0730-0800","TRAVEL"],["0800-0900","BREAKFAST"],["0900-0930","TRAVEL"],["0930-1100","PREPARE FOR CAMPER ARRIVAL (CABINS, TENTS, ETC.)"],["1100-1130","TRAVEL"],["1130-1200","LUNCH"],["1200-1230","TRAVEL"],["1230-1300","STAGE FOR CAMPER ARRIVAL"],["1300-1430","CAMPER ARRIVAL"],["1430-1545","SETTLE INTO CABIN"],["1545-1615","Travel"],["1615-1645","Formation/ orientation"],["1645-1745","DINNER"],["1745-1845","D&C CLASS"],["1845-1900","Travel"],["1900-1915","Flag Formation"],["1915-1930","Travel"],["1930-2030","Sally"],["2030-2115","Travel and Showers"],["2115-2200","Lights Out"]],"Monday":[["0630-0715","Wake-Up / Personal Hygiene"],["0715-0730","Travel"],["0730-0750","Flag Formation: Charlie"],["0750-0800","Travel"],["0800-0840","Breakfast*"],["0845-0925","Clean cabin"],["0945-1145","Rappelling"],["1200-1240","Lunch"],["1245-1325","D&C Practice"],["1340-1425","Water Games"],["1445-1645","Low Elements"],["1700-1740","Dinner"],["1745-1825","D&C Practice"],["1825-1830","Travel"],["1830-1845","Flag Formation: Golf"],["1845-1925","Capture the Flag"],["1925-1930","Travel"],["1930-2000","Sally"],["2000-2045","Travel and Showers"],["2045-2130","Lights Out"]],"Tuesday":[["0630-0715","Wake-Up / Personal Hygiene"],["0715-0730","Travel"],["0730-0750","Flag Formation: Foxtrot"],["0750-0800","Travel"],["0800-0840","Clean cabin and bathroom"],["0845-0925","Breakfast"],["0925-0945","Travel"],["0945-1145","Lake"],["1200-1240","Travel and change"],["1245-1325","Lunch*"],["1325-1340","Travel"],["1340-1425","Nap"],["1425-1445","Travel"],["1445-1645","Rock Climbing"],["1645-1700","Travel"],["1700-1740","Dinner"],["1745-1825","Gaga Ball"],["1825-1830","Travel"],["1830-1845","Flag Formation: Bravo"],["1845-2000","Organized Mass Choas"],["2000-2045","Travel and Showers"],["2045-2130","Lights Out"]],"Wednesday":[["0630-0720","Wake-Up / Personal Hygiene"],["0720-0730","Travel"],["0730-0750","Flag Formation: Alpha"],["0750-0800","Travel"],["0800-0840","Clean cabin"],["0845-0925","Breakfast"],["0945-1145","Pool"],["1145-1200","Travel"],["1200-1245","D&C Practice"],["1245-1325","Lunch*"],["1325-1340","Travel"],["1340-1425","Nap"],["1425-1445","Travel"],["1445-1645","Field Games"],["1645-1700","Travel"],["1700-1740","Dinner"],["1745-1825","Gaga Balll"],["1830-1835","Travel"],["1835-1845","Flag Formation: Echo"],["1845-1900","Travel"],["1900-2025","POOL"],["2030-2130","Travel and Showers"],["2140-2215","Lights Out"]],"Thursday":[["0630-0715","Wake-Up / Personal Hygiene"],["0720-0730","Travel"],["0730-0750","Flag Formation: Hotel"],["0750-0800","Travel"],["0800-0840","Breakfast"],["0845-0925","Clean cabin"],["0925-0945","Travel"],["0945-1145","Canoes"],["1200-1245","Tavel and change"],["1245-1325","Lunch"],["1325-1330","Travel"],["1330 - 1345","Group Photo with Helicopter"],["1345-1425","Nap"],["1425-1445","Travel"],["1445-1645","Zipline"],["1645-1700","Travel"],["1700-1740","Dinner*"],["1745-1825","D&C Practice"],["1830-1835","Travel"],["1835-1845","Flag Formation: Delta"],["1845-1900","Travel"],["1900-2000","D&C SHOWCASE AND AWARDS"],["2000-2005","Travel"],["2005-2100","Sally"],["2100-2145","Travel and Showers"],["2145-2230","Lights Out"]],"Friday":[["0630-0715","Wake-Up / Personal Hygiene"],["0715-0730","Travel"],["0730-0750","Flag Formation: 1 Boy, 1 Girl from each platoon"],["0750-0830","CLEAN CABIN"],["0830-0910","BREAKFAST"],["0910-0925","Travel"],["0925-1000","CLEAN CABIN"],["1000-1100","Outprocessing adults"],["1100-1300","Outprocessing adults"]]},"Foxtrot":{"Saturday":[["1000","VOLUNTEERS ARRIVE"],["1000-1030","ENERGIZERS"],["1030-1130","STAFF/ VOLUNTEER TRAINING"],["1130-1200","TRAVEL"],["1200-1300","LUNCH"],["1300-1330","TRAVEL"],["1300-1630","STAFF TRAINING"],["1630-1715","TRAVEL VOUCHERS"],["1715-1730","TRAVEL"],["1730-1800","DINNER"],["1800-1900","CAMP TOUR"],["1900-2100","CAMP PREPARATION"]],"Sunday":[["0700-0730","WAKE-UP/ PERSONAL HYGENIE"],["0730-0800","TRAVEL"],["0800-0900","BREAKFAST"],["0900-0930","TRAVEL"],["0930-1100","PREPARE FOR CAMPER ARRIVAL (CABINS, TENTS, ETC.)"],["1100-1130","TRAVEL"],["1130-1200","LUNCH"],["1200-1230","TRAVEL"],["1230-1300","STAGE FOR CAMPER ARRIVAL"],["1300-1430","CAMPER ARRIVAL"],["1430-1545","SETTLE INTO CABIN"],["1545-1615","Travel"],["1615-1645","Formation/ orientation"],["1645-1745","DINNER*"],["1745-1845","D&C CLASS"],["1845-1900","Travel"],["1900-1915","Flag Formation"],["1915-1930","Travel"],["1930-2030","Sally"],["2030-2115","Travel and Showers"],["2115-2200","Lights Out"]],"Monday":[["0630-0715","Wake-Up / Personal Hygiene"],["0715-0730","Travel"],["0730-0750","Flag Formation: Charlie"],["0750-0800","Travel"],["0800-0840","Clean cabin and bathroom"],["0845-0925","Breakfast"],["0945-1145","Low Elements"],["1200-1240","Lunch"],["1245-1325","D&C Practice"],["1340-1425","Field Games"],["1445-1645","Rappelling"],["1700-1740","Dinner"],["1745-1825","D&C Practice"],["1825-1830","Travel"],["1830-1845","Flag Formation: Golf"],["1845-1925","Capture the Flag"],["1925-1930","Travel"],["1930-2000","Sally"],["2000-2045","Travel and Showers"],["2045-2130","Lights Out"]],"Tuesday":[["0630-0715","Wake-Up / Personal Hygiene"],["0715-0730","Travel"],["0730-0750","Flag Formation: Foxtrot"],["0750-0800","Travel"],["0800-0840","Clean cabin"],["0845-0925","Breakfast*"],["0925-0945","Travel"],["0945-1145","Rock Climbing"],["1200-1240","D&C Practice"],["1245-1325","Lunch"],["1325-1340","Travel"],["1340-1425","Nap"],["1425-1445","Travel"],["1445-1645","Zipline"],["1645-1700","Travel"],["1700-1740","Dinner"],["1745-1825","Gaga Ball"],["1825-1830","Travel"],["1830-1845","Flag Formation: Bravo"],["1845-2000","Organized Mass Choas"],["2000-2045","Travel and Showers"],["2045-2130","Lights Out"]],"Wednesday":[["0630-0720","Wake-Up / Personal Hygiene"],["0720-0730","Travel"],["0730-0750","Flag Formation: Alpha"],["0750-0800","Travel"],["0800-0840","Clean cabin"],["0845-0925","Breakfast"],["0945-1145","Pool"],["1145-1200","Travel"],["1200-1245","D&C Practice"],["1245-1325","Lunch"],["1325-1340","Travel"],["1340-1425","Lake"],["1425-1445","Travel"],["1445-1645","Canoes"],["1645-1700","Travel"],["1700-1740","Dinner"],["1745-1825","Gaga Balll"],["1830-1835","Travel"],["1835-1845","Flag Formation: Echo"],["1845-1900","Travel"],["1900-2025","POOL"],["2030-2130","Travel and Showers"],["2140-2215","Lights Out"]],"Thursday":[["0630-0715","Wake-Up / Personal Hygiene"],["0720-0730","Travel"],["0730-0750","Flag Formation: Hotel"],["0750-0800","Travel"],["0800-0840","Clean cabin"],["0845-0925","Breakfast"],["0925-0945","Travel"],["0945-1145","Dangle Duo"],["1200-1245","Lunch*"],["1245-1325","D&C Practice"],["1325-1330","Travel"],["1330 - 1345","Group Photo with Helicopter"],["1345-1425","Nap"],["1425-1445","Travel"],["1445-1645","Water Games"],["1645-1700","Travel"],["1700-1740","D&C Practice"],["1745-1825","Dinner"],["1830-1835","Travel"],["1835-1845","Flag Formation: Delta"],["1845-1900","Travel"],["1900-2000","D&C SHOWCASE AND AWARDS"],["2000-2005","Travel"],["2005-2100","Sally"],["2100-2145","Travel and Showers"],["2145-2230","Lights Out"]],"Friday":[["0630-0715","Wake-Up / Personal Hygiene"],["0715-0730","Travel"],["0730-0750","Flag Formation: 1 Boy, 1 Girl from each platoon"],["0750-0830","BREAKFAST"],["0830-0910","CLEAN CABIN"],["0910-0925","Travel"],["0925-1000","CLEAN CABIN"],["1000-1100","Outprocessing adults"],["1100-1300","Outprocessing adults"]]},"Golf":{"Saturday":[["1000","VOLUNTEERS ARRIVE"],["1000-1030","ENERGIZERS"],["1030-1130","STAFF/ VOLUNTEER TRAINING"],["1130-1200","TRAVEL"],["1200-1300","LUNCH"],["1300-1330","TRAVEL"],["1300-1630","STAFF TRAINING"],["1630-1715","TRAVEL VOUCHERS"],["1715-1730","TRAVEL"],["1730-1800","DINNER"],["1800-1900","CAMP TOUR"],["1900-2100","CAMP PREPARATION"]],"Sunday":[["0700-0730","WAKE-UP/ PERSONAL HYGENIE"],["0730-0800","TRAVEL"],["0800-0900","BREAKFAST"],["0900-0930","TRAVEL"],["0930-1100","PREPARE FOR CAMPER ARRIVAL (CABINS, TENTS, ETC.)"],["1100-1130","TRAVEL"],["1130-1200","LUNCH"],["1200-1230","TRAVEL"],["1230-1300","STAGE FOR CAMPER ARRIVAL"],["1300-1430","CAMPER ARRIVAL"],["1430-1545","SETTLE INTO CABIN"],["1545-1615","Travel"],["1615-1645","Formation/ orientation"],["1645-1745","CANTEEN GAMES"],["1745-1845","DINNER"],["1845-1900","Travel"],["1900-1915","Flag Formation"],["1915-1930","Travel"],["1930-2030","Sally"],["2030-2115","D&C CLASS"],["2115-2200","Travel and Showers"],["2200","Lights Out"]],"Monday":[["0630-0715","Wake-Up / Personal Hygiene"],["0715-0730","Travel"],["0730-0750","Flag Formation: Charlie"],["0750-0800","Travel"],["0800-0840","Breakfast"],["0845-0925","Clean cabin"],["0945-1145","Dangle Duo"],["1200-1240","Lunch*"],["1245-1325","D&C Practice"],["1340-1425","Nap and change"],["1445-1645","Pool"],["1700-1740","D&C Practice"],["1745-1825","Dinner"],["1825-1830","Travel"],["1830-1845","Flag Formation: Golf"],["1845-1925","Capture the Flag"],["1925-1930","Travel"],["1930-2000","Sally"],["2000-2045","Teen Council discussion"],["2045-2130","Travel and Showers"]],"Tuesday":[["0630-0715","Wake-Up / Personal Hygiene"],["0715-0730","Travel"],["0730-0750","Flag Formation: Foxtrot"],["0750-0800","Travel"],["0800-0840","Clean cabin"],["0845-0925","Breakfast"],["0925-0945","Travel"],["0945-1145","Zipline"],["1200-1240","Lunch"],["1245-1325","D&C Practice"],["1325-1340","Travel"],["1340-1425","Water Games"],["1425-1445","Travel"],["1445-1645","Rock Climbing"],["1645-1700","Travel"],["1700-1740","Gaga Balll"],["1745-1825","Dinner*"],["1825-1830","Travel"],["1830-1845","Flag Formation: Bravo"],["1845-2000","Organized Mass Choas"],["2000-2045","GOAL SETTING"],["2045-2130","Travel and Showers"]],"Wednesday":[["0630-0720","Wake-Up / Personal Hygiene"],["0720-0730","Travel"],["0730-0750","Flag Formation: Alpha"],["0750-0800","Travel"],["0800-0840","Breakfast*"],["0845-0925","Clean cabin and bathroom"],["0945-1145","Canoes"],["1145-1200","Travel"],["1200-1245","Lunch"],["1245-1325","Gaga Balll"],["1325-1340","Travel"],["1340-1425","Field Games"],["1425-1445","Travel"],["1445-1645","Rappelling"],["1645-1700","Travel"],["1700-1740","D&C Practice"],["1745-1825","Dinner"],["1830-1835","Travel"],["1835-1845","Flag Formation: Echo"],["1845-1900","Travel"],["1900-2025","Gaga Balll/ Canteen Games"],["2030-2130","POOL"],["2140-2215","Travel and Showers"],["2230","Lights Out"]],"Thursday":[["0630-0715","Wake-Up / Personal Hygiene"],["0720-0730","Travel"],["0730-0750","Flag Formation: Hotel"],["0750-0800","Travel"],["0800-0840","Clean cabin"],["0845-0925","Breakfast"],["0925-0945","Travel"],["0945-1145","Low Elements"],["1200-1245","D&C Practice"],["1245-1325","Lunch"],["1325-1330","Travel"],["1330 - 1345","Group Photo with Helicopter"],["1345-1425","Nap"],["1425-1445","Travel"],["1445-1645","Lake"],["1645-1700","Travel"],["1700-1740","D&C Practice"],["1745-1825","Dinner"],["1830-1835","Travel"],["1835-1845","Flag Formation: Delta"],["1845-1900","Travel"],["1900-2000","D&C SHOWCASE AND AWARDS"],["2000-2005","Travel"],["2005-2100","Sally"],["2100-2145","Sally"],["2145-2230","Travel and Showers"],["2230","Lights Out"]],"Friday":[["0630-0715","Wake-Up / Personal Hygiene"],["0715-0730","Travel"],["0730-0750","Flag Formation: 1 Boy, 1 Girl from each platoon"],["0750-0830","BREAKFAST"],["0830-0910","CLEAN CABIN"],["0910-0925","Travel"],["0925-1000","CLEAN CABIN"],["1000-1100","Outprocessing adults"],["1100-1300","Outprocessing adults"]]},"Hotel":{"Saturday":[["1000","VOLUNTEERS ARRIVE"],["1000-1030","ENERGIZERS"],["1030-1130","STAFF/ VOLUNTEER TRAINING"],["1130-1200","TRAVEL"],["1200-1300","LUNCH"],["1300-1330","TRAVEL"],["1300-1630","STAFF TRAINING"],["1630-1715","TRAVEL VOUCHERS"],["1715-1730","TRAVEL"],["1730-1800","DINNER"],["1800-1900","CAMP TOUR"],["1900-2100","CAMP PREPARATION"]],"Sunday":[["0700-0730","WAKE-UP/ PERSONAL HYGENIE"],["0730-0800","TRAVEL"],["0800-0900","BREAKFAST"],["0900-0930","TRAVEL"],["0930-1100","PREPARE FOR CAMPER ARRIVAL (CABINS, TENTS, ETC.)"],["1100-1130","TRAVEL"],["1130-1200","LUNCH"],["1200-1230","TRAVEL"],["1230-1300","STAGE FOR CAMPER ARRIVAL"],["1300-1430","CAMPER ARRIVAL"],["1430-1545","SETTLE INTO CABIN"],["1545-1615","Travel"],["1615-1645","Formation/ orientation"],["1645-1745","CANTEEN GAMES"],["1745-1845","DINNER"],["1845-1900","Travel"],["1900-1915","Flag Formation"],["1915-1930","Travel"],["1930-2030","Sally"],["2030-2115","D&C CLASS"],["2115-2200","Travel and Showers"],["2200","Lights Out"]],"Monday":[["0630-0715","Wake-Up / Personal Hygiene"],["0715-0730","Travel"],["0730-0750","Flag Formation: Charlie"],["0750-0800","Travel"],["0800-0840","Breakfast"],["0845-0925","Travel to HR"],["0945-1145","High Ropes (0845-1245)"],["1200-1240","travel from HR"],["1245-1325","Lunch"],["1340-1425","Nap and change"],["1445-1645","Pool"],["1700-1740","D&C Practice"],["1745-1825","Dinner*"],["1825-1830","Travel"],["1830-1845","Flag Formation: Golf"],["1845-1925","Capture the Flag"],["1925-1930","Travel"],["1930-2000","Sally"],["2000-2045","Teen Council discussion"],["2045-2130","Travel and Showers"]],"Tuesday":[["0630-0715","Wake-Up / Personal Hygiene"],["0715-0730","Travel"],["0730-0750","Flag Formation: Foxtrot"],["0750-0800","Travel"],["0800-0840","Clean cabin"],["0845-0925","Breakfast"],["0925-0945","Travel"],["0945-1145","Rappelling"],["1200-1240","Lunch"],["1245-1325","D&C Practice"],["1325-1340","Travel"],["1340-1425","Field Games"],["1425-1445","Travel"],["1445-1645","Canoes"],["1645-1700","Travel"],["1700-1740","Travel and change"],["1745-1825","Dinner"],["1825-1830","Travel"],["1830-1845","Flag Formation: Bravo"],["1845-2000","Organized Mass Choas"],["2000-2045","GOAL SETTING"],["2045-2130","Travel and Showers"]],"Wednesday":[["0630-0720","Wake-Up / Personal Hygiene"],["0720-0730","Travel"],["0730-0750","Flag Formation: Alpha"],["0750-0800","Travel"],["0800-0840","Breakfast"],["0845-0925","Travel to Caves"],["0945-1145","Caving (0845 -1245)"],["1145-1200","Travel"],["1200-1245","Travel from Caves"],["1245-1325","Lunch"],["1325-1340","Travel"],["1340-1425","Water Games"],["1425-1445","Travel"],["1445-1645","Dangle Duo"],["1645-1700","Travel"],["1700-1740","D&C Practice"],["1745-1825","Dinner"],["1830-1835","Travel"],["1835-1845","Flag Formation: Echo"],["1845-1900","Travel"],["1900-2025","Gaga Balll/ Canteen Games"],["2030-2130","POOL"],["2140-2215","Travel and Showers"],["2230","Lights Out"]],"Thursday":[["0630-0715","Wake-Up / Personal Hygiene"],["0720-0730","Travel"],["0730-0750","Flag Formation: Hotel"],["0750-0800","Travel"],["0800-0840","Clean cabin and bathroom"],["0845-0925","Breakfast*"],["0925-0945","Travel"],["0945-1145","Zipline"],["1200-1245","Lunch"],["1245-1325","D&C Practice"],["1325-1330","Travel"],["1330 - 1345","Group Photo with Helicopter"],["1345-1425","Nap"],["1425-1445","Travel"],["1445-1645","Rock Climbing"],["1645-1700","Travel"],["1700-1740","Dinner"],["1745-1825","D&C Practice"],["1830-1835","Travel"],["1835-1845","Flag Formation: Delta"],["1845-1900","Travel"],["1900-2000","D&C SHOWCASE AND AWARDS"],["2000-2005","Travel"],["2005-2100","Sally"],["2100-2145","Sally"],["2145-2230","Travel and Showers"],["2230","Lights Out"]],"Friday":[["0630-0715","Wake-Up / Personal Hygiene"],["0715-0730","Travel"],["0730-0750","Flag Formation: 1 Boy, 1 Girl from each platoon"],["0750-0830","CLEAN CABIN"],["0830-0910","BREAKFAST*"],["0910-0925","Travel"],["0925-1000","CLEAN CABIN"],["1000-1100","Outprocessing adults"],["1100-1300","Outprocessing adults"]]}};
+  function buildWeek(name){ const w={}; CAMP_DAYS.forEach(function(d){ w[d]=(((CAMP_SCHED[name]||{})[d])||[]).map(function(x){return {time:x[0],activity:x[1],loc:"",status:"Upcoming"};}); }); return w; }
+  function emptyWeek(){ const w={}; CAMP_DAYS.forEach(function(d){ w[d]=[]; }); return w; }
+
   const defaults=()=>({
     campName:"KYARNG Youth Camp",
     day:"", oic:"", nco:"", wx:"",
@@ -516,28 +518,29 @@
     ],
     incidents:[],
     roster:[],
+    activeDay:0,
     activePlatoon:0,
-    platoons: NATO.map(n=>({name:n, schedule:defaultDay()}))
+    platoons: CAMP_PLATOONS.map(function(n){ return {name:n, sched:buildWeek(n)}; })
   });
  
   let state=defaults();
 
-  // Merge saved/loaded data over defaults and upgrade older formats (e.g. single schedule -> platoons).
+  // Merge saved/loaded data over defaults and upgrade older formats to the day×platoon model.
   function migrateState(loaded){
     const st=Object.assign(defaults(), loaded||{});
-    if(loaded && loaded.schedule && !loaded.platoons){
-      const base=defaults().platoons;
-      base[0].schedule=loaded.schedule;
-      st.platoons=base;
-      st.activePlatoon=0;
-    }
     if(!Array.isArray(st.platoons)||!st.platoons.length) st.platoons=defaults().platoons;
     st.platoons.forEach((pl,i)=>{
-      if(!pl||typeof pl!=="object"){ st.platoons[i]={name:NATO[i]||("Platoon "+(i+1)), schedule:[]}; return; }
-      if(!Array.isArray(pl.schedule)) pl.schedule=[];
-      if(pl.name==null) pl.name=NATO[i]||("Platoon "+(i+1));
+      if(!pl||typeof pl!=="object"){ st.platoons[i]={name:CAMP_PLATOONS[i]||("Platoon "+(i+1)), sched:emptyWeek()}; return; }
+      if(!pl.sched||typeof pl.sched!=="object"){
+        pl.sched=emptyWeek();
+        if(Array.isArray(pl.schedule)) pl.sched[CAMP_DAYS[0]]=pl.schedule; // old single-schedule -> first day
+      }
+      delete pl.schedule;
+      CAMP_DAYS.forEach(d=>{ if(!Array.isArray(pl.sched[d])) pl.sched[d]=[]; });
+      if(pl.name==null) pl.name=CAMP_PLATOONS[i]||("Platoon "+(i+1));
     });
     if(typeof st.activePlatoon!=="number"||st.activePlatoon<0||st.activePlatoon>=st.platoons.length) st.activePlatoon=0;
+    if(typeof st.activeDay!=="number"||st.activeDay<0||st.activeDay>=CAMP_DAYS.length) st.activeDay=0;
     delete st.schedule;
     return st;
   }
@@ -728,14 +731,36 @@
     $("rosterCount").innerHTML="<b>"+rc.in+"</b> in · "+rc.out+" out"+(rc.absent?" · "+rc.absent+" absent":"")+" · "+rc.total+" total";
   }
 
-  // ---------- schedule (per platoon) ----------
+  // ---------- schedule (per day × platoon) ----------
+  function curDayLabel(){
+    let i=state.activeDay||0;
+    if(i<0||i>=CAMP_DAYS.length){ i=0; state.activeDay=0; }
+    return CAMP_DAYS[i];
+  }
   function curPlatoon(){
     const p=state.platoons||[];
     if(!p.length) return null;
     let i=state.activePlatoon||0;
     if(i<0||i>=p.length){ i=0; state.activePlatoon=0; }
-    if(!Array.isArray(p[i].schedule)) p[i].schedule=[];
+    if(!p[i].sched) p[i].sched=emptyWeek();
     return p[i];
+  }
+  function curSched(){
+    const cp=curPlatoon(); if(!cp) return null;
+    const d=curDayLabel();
+    if(!Array.isArray(cp.sched[d])) cp.sched[d]=[];
+    return cp.sched[d];
+  }
+  function renderDtabs(){
+    const row=$("dtabRow"); if(!row) return;
+    row.innerHTML="";
+    CAMP_DAYS.forEach((d,i)=>{
+      const btn=document.createElement("button");
+      btn.className="dtab"+(i===state.activeDay?" active":"");
+      btn.textContent=d;
+      btn.dataset.dtab=i;
+      row.appendChild(btn);
+    });
   }
   function renderPtabs(){
     const row=$("ptabRow"); if(!row) return;
@@ -752,8 +777,7 @@
   }
   function renderSchedule(){
     const b=$("schBody"); b.innerHTML="";
-    const cp=curPlatoon();
-    const list=cp?cp.schedule:[];
+    const list=curSched()||[];
     if(list.length===0){
       b.innerHTML='<tr><td colspan="5" class="inc-empty">No activities yet. Use &ldquo;+ Add activity&rdquo; to build this platoon&rsquo;s day.</td></tr>';
     }else{
@@ -774,7 +798,7 @@
     const el=$("schToday"); if(el){ const d=new Date(); el.textContent=MON[d.getMonth()]+" "+pad(d.getDate()); }
   }
 
-  function renderAll(){ renderTiles(); renderPer(); renderInc(); renderRoster(); renderPtabs(); renderSchedule(); renderHeat(); }
+  function renderAll(){ renderTiles(); renderPer(); renderInc(); renderRoster(); renderDtabs(); renderPtabs(); renderSchedule(); renderHeat(); }
  
   // ---------- events ----------
   // header + tile fields
@@ -788,12 +812,12 @@
     if(t.dataset.per!=null){ const r=state.perstat[+t.dataset.per]; const f=t.dataset.f; r[f]=(f==="label")?t.value:(+t.value||0); renderPer(); renderTiles(); save(); }
     else if(t.dataset.inc!=null){ state.incidents[+t.dataset.inc][t.dataset.f]=t.value; save(); }
     else if(t.dataset.ros!=null){ state.roster[+t.dataset.ros][t.dataset.f]=t.value; save(); }
-    else if(t.dataset.sch!=null){ const cp=curPlatoon(); if(cp) cp.schedule[+t.dataset.sch][t.dataset.f]=t.value; save(); }
+    else if(t.dataset.sch!=null){ const s=curSched(); if(s&&s[+t.dataset.sch]) s[+t.dataset.sch][t.dataset.f]=t.value; save(); }
   });
   document.body.addEventListener("change",e=>{
     const t=e.target;
     if(t.dataset.ros!=null){ const f=t.dataset.f; const r=state.roster[+t.dataset.ros]; r[f]=t.value; if(f==="status") r.last=nowDTG(); renderRoster(); renderTiles(); save(); return; }
-    if(t.dataset.sch!=null){ const cp=curPlatoon(); if(cp) cp.schedule[+t.dataset.sch][t.dataset.f]=t.value; renderSchedule(); save(); return; }
+    if(t.dataset.sch!=null){ const s=curSched(); if(s&&s[+t.dataset.sch]) s[+t.dataset.sch][t.dataset.f]=t.value; renderSchedule(); save(); return; }
   });
   // delegated delete + add
   document.body.addEventListener("click",e=>{
@@ -801,8 +825,9 @@
     if(t.dataset.delper!=null){ state.perstat.splice(+t.dataset.delper,1); renderPer(); renderTiles(); save(); }
     else if(t.dataset.delinc!=null){ state.incidents.splice(+t.dataset.delinc,1); renderInc(); renderTiles(); save(); }
     else if(t.dataset.delros!=null){ state.roster.splice(+t.dataset.delros,1); renderRoster(); renderTiles(); save(); }
-    else if(t.dataset.delsch!=null){ const cp=curPlatoon(); if(cp) cp.schedule.splice(+t.dataset.delsch,1); renderSchedule(); save(); }
+    else if(t.dataset.delsch!=null){ const s=curSched(); if(s) s.splice(+t.dataset.delsch,1); renderSchedule(); save(); }
     else if(t.dataset.signros!=null){ const r=state.roster[+t.dataset.signros]; r.status=(r.status==="In")?"Out":"In"; r.last=nowDTG(); renderRoster(); renderTiles(); save(); }
+    else if(t.dataset.dtab!=null){ state.activeDay=+t.dataset.dtab; renderDtabs(); renderSchedule(); save(); }
     else if(t.dataset.ptab!=null){ state.activePlatoon=+t.dataset.ptab; renderPtabs(); renderSchedule(); save(); }
   });
   $("addPer").addEventListener("click",()=>{ state.perstat.push({label:"New element",asg:0,pres:0}); renderPer(); renderTiles(); save(); });
@@ -822,13 +847,13 @@
   });
   $("rInAll").addEventListener("click",()=>{ const d=nowDTG(); state.roster.forEach(r=>{ if(r.status!=="Absent"){ r.status="In"; r.last=d; } }); renderRoster(); renderTiles(); save(); });
   $("rOutAll").addEventListener("click",()=>{ const d=nowDTG(); state.roster.forEach(r=>{ if(r.status!=="Absent"){ r.status="Out"; r.last=d; } }); renderRoster(); renderTiles(); save(); });
-  $("addSch").addEventListener("click",()=>{ const cp=curPlatoon(); if(!cp) return; cp.schedule.push({time:"",activity:"",loc:"",status:"Upcoming"}); renderSchedule(); save(); });
+  $("addSch").addEventListener("click",()=>{ const s=curSched(); if(!s) return; s.push({time:"",activity:"",loc:"",status:"Upcoming"}); renderSchedule(); save(); });
 
   // platoon controls
   $("ptName").addEventListener("input",e=>{ const cp=curPlatoon(); if(!cp) return; cp.name=e.target.value; renderPtabs(); save(); });
   $("ptAdd").addEventListener("click",()=>{
     state.platoons=state.platoons||[];
-    state.platoons.push({name:"Platoon "+(state.platoons.length+1), schedule:defaultDay()});
+    state.platoons.push({name:"Platoon "+(state.platoons.length+1), sched:emptyWeek()});
     state.activePlatoon=state.platoons.length-1;
     renderPtabs(); renderSchedule(); $("ptName").focus(); save();
   });
@@ -883,11 +908,11 @@
         notIn.forEach(r=>L.push("  ["+(r.status||"Out").toUpperCase().padEnd(6)+"] "+(r.name||"(unnamed)")+(r.group?" / "+r.group:"")+(r.role?" ("+r.role+")":"")));
       }
     }
-    const cp=curPlatoon();
-    if(cp&&cp.schedule.length){
+    const cp=curPlatoon(); const csched=curSched();
+    if(cp&&csched&&csched.length){
       L.push("");
-      L.push("SCHEDULE — "+(cp.name||"Platoon"));
-      cp.schedule.forEach(r=>L.push("  "+String(r.time||"----").padEnd(6)+" "+(r.activity||"")+(r.loc?" @ "+r.loc:"")+(r.status&&r.status!=="Upcoming"?"  ["+r.status+"]":"")));
+      L.push("SCHEDULE — "+(cp.name||"Platoon")+" ("+curDayLabel()+")");
+      csched.forEach(r=>L.push("  "+String(r.time||"----").padEnd(10)+" "+(r.activity||"")+(r.loc?" @ "+r.loc:"")+(r.status&&r.status!=="Upcoming"?"  ["+r.status+"]":"")));
     }
     if(state.incidents.length){
       L.push("");
@@ -1102,6 +1127,8 @@
   (async function init(){
     const loaded=await Store.load();
     state=migrateState(loaded);
+    // on a fresh board, open the schedule to today's day of the week
+    if(!loaded){ const gd=new Date().getDay(); const idx=(gd+1)%7; if(idx<CAMP_DAYS.length) state.activeDay=idx; }
     $("campName").value=state.campName;
     $("mDay").value=state.day; $("mOic").value=state.oic; $("mNco").value=state.nco; $("mWx").value=state.wx;
     var _st=$("soTitle"); if(_st) _st.textContent=state.campName;
