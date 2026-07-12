@@ -22,6 +22,11 @@ it works, online or offline.
   Accountability tile (present ÷ accountable, with absentees excluded).
 - **PERSTAT** — personnel counts by element (assigned vs. present). Used for
   Accountability only when the roster is empty, so the old workflow still works.
+- **Heat Condition · WBGT** *(new)* — a Green/Yellow/Red/Black heat flag driven
+  by a Wet Bulb Globe Temperature reading, with activity and hydration guidance
+  for each level. Enter a reading from a heat-stress meter, or pull an estimate
+  from the current weather (temperature + humidity). Guidance is a guideline —
+  always follow your camp medical SOP.
 - **Daily Schedule** *(new)* — the day's activities and timing. Mark one item
   **Now** to highlight the current event.
 - **Incident Report Log** — one row per report; log incidents by hand.
@@ -57,8 +62,10 @@ can be added as a follow-up.
    press *Locate* to use the device's location).
 4. Add your campers/staff in **Roster · Sign-In**, and adjust the **Daily
    Schedule** to your camp's timeline.
-5. Log any incidents by hand in the **Incident Report Log**.
-6. Click **Save file** whenever you want a portable backup.
+5. In **Heat Condition · WBGT**, enter a meter reading or press *Use weather
+   estimate* to set the heat flag for the day.
+6. Log any incidents by hand in the **Incident Report Log**.
+7. Click **Save file** whenever you want a portable backup.
 
 ## Notes
 

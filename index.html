@@ -250,6 +250,27 @@
   .sch-Now{color:#0f1a0e;background:var(--olive-bright);border-color:var(--olive-bright)}
   .sch-Done{color:var(--muted);background:var(--panel-2);border-color:var(--line-soft)}
   .sch-Upcoming{color:var(--ink);background:var(--panel-2);border-color:var(--line-soft)}
+  /* small secondary button (weather + heat controls) */
+  .btn2{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:5px;padding:8px 12px;cursor:pointer;font-size:12px;white-space:nowrap;width:auto}
+  .btn2:hover{border-color:var(--olive-bright)}
+  /* Heat / WBGT flag */
+  .heat-wrap{display:flex;gap:16px;flex-wrap:wrap;align-items:stretch}
+  .heat-flag{flex:0 0 160px;min-width:150px;border-radius:8px;border:1px solid var(--line);padding:14px;display:flex;flex-direction:column;justify-content:center;gap:6px}
+  .hf-name{font-family:var(--mono);font-weight:800;font-size:22px;letter-spacing:.1em}
+  .hf-wbgt{font-family:var(--mono);font-weight:800;font-size:34px;line-height:1;font-variant-numeric:tabular-nums}
+  .hf-unit{font-size:12px;font-weight:600;margin-left:6px;opacity:.85}
+  .heat-guide{flex:1;min-width:200px;display:flex;flex-direction:column;gap:8px;justify-content:center}
+  .hg-row{display:flex;gap:10px;align-items:baseline}
+  .hg-k{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);min-width:64px}
+  .hg-v{font-size:14px;line-height:1.4}
+  .heat-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px}
+  .heat-controls input{width:120px;font-family:var(--mono)}
+  .heat-NA{background:var(--panel-2);color:var(--muted)}
+  .heat-LOW{background:var(--panel-2);color:var(--olive-bright);border-color:var(--line)}
+  .heat-GREEN{background:var(--green);color:#0f1a0e;border-color:var(--green)}
+  .heat-YELLOW{background:var(--amber);color:#241a05;border-color:var(--amber)}
+  .heat-RED{background:var(--red);color:#2a0d08;border-color:var(--red)}
+  .heat-BLACK{background:#15160f;color:#e9ead9;border-color:var(--black-status)}
 </style>
 </head>
 <body>
@@ -353,6 +374,7 @@
     </div>
   </div>
 
+  <div class="grid-2">
   <!-- PERSTAT -->
   <div class="panel">
     <div class="panel-head"><h2>PERSTAT</h2><span class="hint">assigned &rarr; present</span></div>
@@ -374,7 +396,32 @@
       <button class="add-btn" id="addPer">+ Add element</button>
     </div>
   </div>
- 
+
+  <!-- HEAT CONDITION -->
+  <div class="panel">
+    <div class="panel-head"><h2>Heat Condition &bull; WBGT</h2><span class="hint">flag &amp; guidance</span></div>
+    <div class="panel-body">
+      <div class="panel-sub">Wet Bulb Globe Temperature sets the heat flag. Enter your meter reading, or pull an estimate from current weather. Always follow your camp medical SOP.</div>
+      <div class="heat-wrap">
+        <div class="heat-flag heat-NA" id="heatFlag">
+          <div class="hf-name" id="heatName">&mdash; set WBGT &mdash;</div>
+          <div class="hf-wbgt"><span id="heatWbgt">--</span><span class="hf-unit">&deg;F WBGT</span></div>
+        </div>
+        <div class="heat-guide">
+          <div class="hg-row"><span class="hg-k">Activity</span><span class="hg-v" id="heatWork">Enter a WBGT reading to see guidance.</span></div>
+          <div class="hg-row"><span class="hg-k">Water</span><span class="hg-v" id="heatWater">&mdash;</span></div>
+        </div>
+      </div>
+      <div class="heat-controls">
+        <input id="heatInput" type="number" inputmode="decimal" placeholder="WBGT &deg;F" aria-label="WBGT reading">
+        <button class="btn2" id="heatSet">Set</button>
+        <button class="btn2" id="heatEst">Use weather estimate</button>
+        <span class="wx-status" id="heatEstNote"></span>
+      </div>
+    </div>
+  </div>
+  </div>
+
   <!-- DAILY SCHEDULE -->
   <div class="panel">
     <div class="panel-head">
@@ -428,6 +475,7 @@
     campName:"KYARNG Youth Camp",
     day:"", oic:"", nco:"", wx:"",
     wxCoords:"37.3849, -86.2335",
+    wbgt:null,
     volLabel:"Volunteers", vol:0,
     gsaLabel:"GSAs", gsa:0,
     perstat:[
@@ -502,7 +550,45 @@
     return {total:list.length,in:inn,out:out,absent:abs,accountable:accountable,
             pct:accountable>0?Math.round(inn/accountable*1000)/10:null};
   }
- 
+
+  // ---------- heat / WBGT ----------
+  // Flag thresholds (WBGT °F): <80 LOW, 80–84.9 GREEN, 85–87.9 YELLOW, 88–89.9 RED, ≥90 BLACK.
+  const HEATCATS={
+    LOW:   {key:"LOW",   name:"LOW",    work:"Normal activities. Keep water available.",                      water:"Drink on regular breaks."},
+    GREEN: {key:"GREEN", name:"GREEN",  work:"Use discretion for intense or prolonged exertion.",             water:"Water break about every 45 min."},
+    YELLOW:{key:"YELLOW",name:"YELLOW", work:"Limit strenuous activity; rest in shade between bouts.",         water:"Water break about every 30 min."},
+    RED:   {key:"RED",   name:"RED",    work:"Curtail strenuous activity; short bouts, mandatory shade rest.", water:"Water break about every 20–30 min."},
+    BLACK: {key:"BLACK", name:"BLACK",  work:"Suspend strenuous outdoor activity; move to shade or A/C.",       water:"Continuous hydration; watch for heat illness."}
+  };
+  function heatCat(wb){
+    if(wb==null||isNaN(wb)) return {key:"NA",name:"— set WBGT —",work:"Enter a WBGT reading (or use the weather estimate) to see guidance.",water:"—"};
+    if(wb>=90) return HEATCATS.BLACK;
+    if(wb>=88) return HEATCATS.RED;
+    if(wb>=85) return HEATCATS.YELLOW;
+    if(wb>=80) return HEATCATS.GREEN;
+    return HEATCATS.LOW;
+  }
+  // Shade WBGT estimate from air temp + humidity (BoM approximation). Underestimates in full sun — a meter is better.
+  const wxObs={tempC:null, rh:null};
+  function estimateWBGT(){
+    const tC=wxObs.tempC, rh=wxObs.rh;
+    if(tC==null||rh==null) return null;
+    const e=(rh/100)*6.105*Math.exp(17.27*tC/(237.7+tC));
+    const wbgtC=0.567*tC+0.393*e+3.94;
+    return Math.round(wbgtC*9/5+32);
+  }
+  function renderHeat(){
+    const wb=(state.wbgt==null)?null:(+state.wbgt);
+    const cat=heatCat(wb);
+    const flag=$("heatFlag"); if(flag) flag.className="heat-flag heat-"+cat.key;
+    if($("heatName")) $("heatName").textContent=cat.name;
+    if($("heatWbgt")) $("heatWbgt").textContent=(wb==null?"--":Math.round(wb));
+    if($("heatWork")) $("heatWork").textContent=cat.work;
+    if($("heatWater")) $("heatWater").textContent=cat.water;
+    const est=estimateWBGT();
+    if($("heatEstNote")) $("heatEstNote").textContent = est!=null ? ("estimate ≈ "+est+"° from current weather") : "";
+  }
+
   // ---------- render tiles ----------
   function renderTiles(){
     $("valVol").value=state.vol;
@@ -624,7 +710,7 @@
     const el=$("schToday"); if(el){ const d=new Date(); el.textContent=MON[d.getMonth()]+" "+pad(d.getDate()); }
   }
 
-  function renderAll(){ renderTiles(); renderPer(); renderInc(); renderRoster(); renderSchedule(); }
+  function renderAll(){ renderTiles(); renderPer(); renderInc(); renderRoster(); renderSchedule(); renderHeat(); }
  
   // ---------- events ----------
   // header + tile fields
@@ -672,9 +758,17 @@
   $("rInAll").addEventListener("click",()=>{ const d=nowDTG(); state.roster.forEach(r=>{ if(r.status!=="Absent"){ r.status="In"; r.last=d; } }); renderRoster(); renderTiles(); save(); });
   $("rOutAll").addEventListener("click",()=>{ const d=nowDTG(); state.roster.forEach(r=>{ if(r.status!=="Absent"){ r.status="Out"; r.last=d; } }); renderRoster(); renderTiles(); save(); });
   $("addSch").addEventListener("click",()=>{ state.schedule.push({time:"",activity:"",loc:"",status:"Upcoming"}); renderSchedule(); save(); });
- 
 
- 
+  // heat / WBGT controls
+  function setWbgt(v){ state.wbgt=(v===""||isNaN(parseFloat(v)))?null:parseFloat(v); renderHeat(); save(); }
+  $("heatSet").addEventListener("click",()=>setWbgt($("heatInput").value));
+  $("heatInput").addEventListener("keydown",e=>{ if(e.key==="Enter") setWbgt(e.target.value); });
+  $("heatEst").addEventListener("click",()=>{
+    const est=estimateWBGT();
+    if(est==null){ $("heatEstNote").textContent="need live weather first — set coordinates, then Refresh"; return; }
+    state.wbgt=est; $("heatInput").value=est; renderHeat(); save();
+  });
+
   function sitrep(){
     const d=new Date(); const t=totals();
     const L=[];
@@ -689,6 +783,7 @@
     if(wxNow&&wxNow!=="--") L.push("WX (NWS): "+wxTmp+" "+wxNow);
     const alertChips=Array.from(document.querySelectorAll("#wxAlerts .wx-chip")).map(c=>c.textContent).filter(x=>x&&x!=="No active alerts");
     if(alertChips.length) L.push("WX ALERTS: "+alertChips.join(", "));
+    if(state.wbgt!=null){ const c=heatCat(+state.wbgt); L.push("HEAT: "+c.name+" (WBGT "+Math.round(+state.wbgt)+"°F) — "+c.work); }
     L.push("");
     L.push(state.volLabel.toUpperCase()+": "+state.vol);
     L.push("INCIDENT REPORTS: "+state.incidents.length+" ("+state.incidents.filter(i=>i.status!=="Closed").length+" open)");
@@ -759,6 +854,7 @@
       $("campName").value=state.campName||"";
       $("mDay").value=state.day||""; $("mOic").value=state.oic||""; $("mNco").value=state.nco||""; $("mWx").value=state.wx||"";
       $("wxCoords").value=state.wxCoords||"";
+      $("heatInput").value=(state.wbgt!=null?state.wbgt:"");
       const _st=$("soTitle"); if(_st) _st.textContent=state.campName||"";
       renderAll();
       WX.load(); save();
@@ -862,6 +958,16 @@
     if(temp==null&&cur) temp=cur.temperature;
     if(!cond&&cur) cond=cur.shortForecast;
     if(cur) wind=(cur.windSpeed||"")+(cur.windDirection?" "+cur.windDirection:"");
+    // capture air temp (°C) + relative humidity for the WBGT estimate
+    let tC=null, rh=null;
+    if(obs){
+      if(obs.temperature&&obs.temperature.value!=null) tC=obs.temperature.value;
+      if(obs.relativeHumidity&&obs.relativeHumidity.value!=null) rh=obs.relativeHumidity.value;
+    }
+    if(tC==null&&cur&&cur.temperature!=null) tC=(cur.temperature-32)*5/9;
+    if(rh==null&&cur&&cur.relativeHumidity&&cur.relativeHumidity.value!=null) rh=cur.relativeHumidity.value;
+    wxObs.tempC=tC; wxObs.rh=rh;
+    renderHeat();
     $("wxTemp").textContent=(temp==null?"--":temp)+"\u00b0";
     $("wxCond").textContent=cond||"--";
     $("wxFeels").textContent=(feels!=null&&feels!==temp)?("feels like "+feels+"\u00b0"):"";
@@ -904,7 +1010,7 @@
     if(!confirm("Clear the board and reset all fields? This cannot be undone.")) return;
     await Store.clear(); state=defaults();
     $("campName").value=state.campName; $("mDay").value=""; $("mOic").value=""; $("mNco").value=""; $("mWx").value="";
-    $("wxCoords").value=state.wxCoords||"";
+    $("wxCoords").value=state.wxCoords||""; $("heatInput").value="";
     const _st=$("soTitle"); if(_st) _st.textContent=state.campName;
     renderAll(); WX.load(); save();
   });
@@ -919,6 +1025,7 @@
     renderAll();
     tickClock(); setInterval(tickClock,1000);
     $("wxCoords").value=state.wxCoords||"";
+    $("heatInput").value=(state.wbgt!=null?state.wbgt:"");
     WX.load();
     setInterval(()=>WX.load(),600000);
     flash();
