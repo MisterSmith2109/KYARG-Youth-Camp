@@ -25,6 +25,13 @@ it works, online or offline.
   **In / Out / Absent**. Type a name and press Enter to add-and-sign-in, or use
   *Sign all in* / *Sign all out*. When anyone is on the roster it drives the
   Accountability tile (present ÷ accountable, with absentees excluded).
+- **Accountability · Formation** *(new)* — a big, glanceable view built from the
+  roster for use at a formation. A green/red banner reads **ALL ACCOUNTED FOR**
+  or **N NOT SIGNED IN**; the not-signed-in people are listed and grouped
+  (Campers / Staff·Support / Volunteers) with their group and last-seen time, and
+  absent/excused people are shown separately. A **head-count check** lets you
+  enter the number of heads counted on the ground and reconciles it against who's
+  signed In (flagging "+2 more on ground" or "2 short").
 - **PERSTAT** — personnel counts by element (assigned vs. present). Used for
   Accountability only when the roster is empty, so the old workflow still works.
 - **Heat Condition · WBGT** *(new)* — a Category 1–5 heat flag driven by a Wet

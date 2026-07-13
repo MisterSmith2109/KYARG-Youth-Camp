@@ -352,6 +352,28 @@
   .hc-emg b{color:var(--red)}
   select.hc-type{font-family:inherit;font-size:13px;padding:5px 6px;border-radius:5px;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);width:100%}
   tr.hc-stroke td{background:rgba(196,60,45,.10)}
+  /* Accountability · Formation view */
+  .fm-banner{border-radius:8px;border:1px solid var(--line);padding:14px 16px;margin-bottom:14px;display:flex;flex-direction:column;gap:3px;background:var(--panel-2)}
+  .fm-banner.ok{background:var(--green);color:#0f1a0e;border-color:var(--green)}
+  .fm-banner.warn{background:var(--red);color:#2a0d08;border-color:var(--red)}
+  .fm-big{font-family:var(--mono);font-weight:800;font-size:26px;letter-spacing:.03em;line-height:1.05}
+  .fm-bsub{font-size:13px;font-weight:600;opacity:.92}
+  .fm-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media (max-width:640px){.fm-grid{grid-template-columns:1fr}}
+  .fm-h{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;display:flex;justify-content:space-between;gap:8px}
+  .fm-list{display:flex;flex-direction:column;gap:4px}
+  .fm-list.fm-dim{opacity:.75}
+  .fm-grp{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:10px 0 4px}
+  .fm-grp:first-child{margin-top:0}
+  .fm-name{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:6px 10px;border:1px solid var(--line);border-radius:5px;background:var(--panel);font-size:14px}
+  .fm-name .fm-when{color:var(--muted);font-size:11px;font-family:var(--mono);white-space:nowrap}
+  .fm-empty{color:var(--muted);font-size:13px;padding:4px 2px}
+  .fm-check{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .fm-check-k{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .fm-check input{width:140px;font-family:var(--mono)}
+  .fm-delta{font-weight:700;font-size:14px}
+  .fm-delta.ok{color:var(--olive-bright)}
+  .fm-delta.warn{color:var(--amber)}
   .heat-NA{background:var(--panel-2);color:var(--muted)}
   .heat-LOW{background:var(--panel-2);color:var(--olive-bright);border-color:var(--line)}
   .heat-GREEN{background:var(--green);color:#0f1a0e;border-color:var(--green)}
@@ -596,6 +618,34 @@
       </div>
       <div class="tbl-scroll" id="schMatrixWrap" style="display:none"></div>
       <button class="add-btn" id="addSch">+ Add activity</button>
+    </div>
+  </div>
+
+  <!-- ACCOUNTABILITY / FORMATION -->
+  <div class="panel" id="fmPanel">
+    <div class="panel-head"><h2>Accountability &middot; Formation</h2><div class="head-right"><span class="si-chip" id="fmChip"></span></div></div>
+    <div class="panel-body">
+      <div class="fm-banner" id="fmBanner">
+        <div class="fm-big" id="fmBig">&mdash;</div>
+        <div class="fm-bsub" id="fmBannerSub"></div>
+      </div>
+      <div class="fm-grid">
+        <div>
+          <div class="fm-h"><span>Not signed in</span><span id="fmOutN"></span></div>
+          <div class="fm-list" id="fmOut"></div>
+        </div>
+        <div>
+          <div class="fm-h"><span>Absent / excused</span><span id="fmAbsN"></span></div>
+          <div class="fm-list fm-dim" id="fmAbs"></div>
+        </div>
+      </div>
+      <div class="fm-check">
+        <span class="fm-check-k">Head-count check</span>
+        <input id="fmCount" type="number" min="0" inputmode="numeric" placeholder="heads counted" aria-label="Heads counted on the ground">
+        <span class="fm-delta" id="fmDelta"></span>
+        <button class="btn2" id="fmClear">Clear</button>
+      </div>
+      <div class="panel-sub">Pulls live from the Roster below. During a formation, count heads on the ground and enter the number to reconcile against who&rsquo;s signed <b>In</b>.</div>
     </div>
   </div>
 
@@ -1308,6 +1358,81 @@
     if($("rosterCount")) $("rosterCount").innerHTML=summary;
     if($("rosterCountHead")) $("rosterCountHead").innerHTML=summary;
     renderPer(); // PERSTAT is derived from the roster
+    renderFormation(); // formation accountability view is derived from the roster too
+  }
+
+  // ---------- accountability / formation view (derived from the roster) ----------
+  function roleGroupLabel(role){
+    for(let k=0;k<PERSTAT_GROUPS.length;k++){ if(PERSTAT_GROUPS[k].roles.indexOf(role)>-1) return PERSTAT_GROUPS[k].label; }
+    return "Other";
+  }
+  function renderFormation(){
+    const banner=$("fmBanner"); if(!banner) return;
+    const list=state.roster||[];
+    const rc=rosterCounts();
+    // "Not signed in" = anyone not In and not Absent (i.e. Out/unset — should be found).
+    const out=list.map((r,i)=>({r:r,i:i})).filter(x=>x.r.status!=="In" && x.r.status!=="Absent");
+    const abs=list.filter(r=>r.status==="Absent");
+    const big=$("fmBig"), sub=$("fmBannerSub"), chip=$("fmChip");
+    if(list.length===0){
+      banner.className="fm-banner"; big.textContent="No roster yet";
+      sub.textContent="Add people in the Roster to use formation accountability.";
+      if(chip) chip.textContent="";
+    }else if(out.length===0){
+      banner.className="fm-banner ok"; big.textContent="ALL ACCOUNTED FOR";
+      sub.textContent=rc.in+" / "+rc.accountable+" signed in"+(rc.absent?" · "+rc.absent+" excused":"");
+      if(chip) chip.textContent="all in";
+    }else{
+      banner.className="fm-banner warn"; big.textContent=out.length+" NOT SIGNED IN";
+      sub.textContent=rc.in+" / "+rc.accountable+" in"+(rc.absent?" · "+rc.absent+" excused":"");
+      if(chip) chip.textContent=out.length+" out";
+    }
+    if($("fmOutN")) $("fmOutN").textContent=out.length?String(out.length):"";
+    if($("fmAbsN")) $("fmAbsN").textContent=abs.length?String(abs.length):"";
+    // Not-signed-in list, grouped by PERSTAT group in a fixed order.
+    const outEl=$("fmOut");
+    if(outEl){
+      if(out.length===0){ outEl.innerHTML='<div class="fm-empty">Everyone is signed in. ✓</div>'; }
+      else{
+        const order=PERSTAT_GROUPS.map(g=>g.label).concat("Other");
+        let html="";
+        order.forEach(label=>{
+          const members=out.filter(x=>roleGroupLabel(x.r.role)===label);
+          if(!members.length) return;
+          html+='<div class="fm-grp">'+esc(label)+' ('+members.length+')</div>';
+          members.forEach(x=>{
+            const nm=String(x.r.name||"").trim()||"(unnamed)";
+            const grp=String(x.r.group||"").trim();
+            const when=String(x.r.last||"").trim();
+            html+='<div class="fm-name"><span>'+esc(nm)+(grp?' <span class="fm-when">'+esc(grp)+'</span>':'')+'</span>'+(when?'<span class="fm-when">since '+esc(when)+'</span>':'')+'</div>';
+          });
+        });
+        outEl.innerHTML=html;
+      }
+    }
+    // Absent / excused list.
+    const absEl=$("fmAbs");
+    if(absEl){
+      if(abs.length===0){ absEl.innerHTML='<div class="fm-empty">None.</div>'; }
+      else{
+        absEl.innerHTML=abs.map(r=>{
+          const nm=String(r.name||"").trim()||"(unnamed)";
+          const grp=String(r.group||"").trim();
+          return '<div class="fm-name"><span>'+esc(nm)+'</span>'+(grp?'<span class="fm-when">'+esc(grp)+'</span>':'')+'</div>';
+        }).join("");
+      }
+    }
+    fmDelta();
+  }
+  // Head-count reconciliation: compare heads counted on the ground to who's signed In.
+  function fmDelta(){
+    const el=$("fmDelta"), inp=$("fmCount"); if(!el||!inp) return;
+    const v=inp.value;
+    if(v===""||isNaN(+v)){ el.textContent=""; el.className="fm-delta"; return; }
+    const counted=Math.max(0,Math.round(+v)), inn=rosterCounts().in, d=counted-inn;
+    if(d===0){ el.textContent="matches signed-in ("+inn+") ✓"; el.className="fm-delta ok"; }
+    else if(d>0){ el.textContent="+"+d+" more on ground than signed in ("+counted+" vs "+inn+")"; el.className="fm-delta warn"; }
+    else{ el.textContent=(-d)+" short of signed in ("+counted+" vs "+inn+")"; el.className="fm-delta warn"; }
   }
 
   // ---------- schedule (per day × platoon) ----------
@@ -1511,6 +1636,8 @@
   $("wrStart").addEventListener("click",wrStart);
   $("wrStop").addEventListener("click",wrStop);
   $("wrSkip").addEventListener("click",()=>{ if(wr.running){ wrAdvance(); renderWR(); } });
+  $("fmCount").addEventListener("input",fmDelta);
+  $("fmClear").addEventListener("click",()=>{ $("fmCount").value=""; fmDelta(); });
   $("siAllPresent").addEventListener("click",()=>{ (state.sensitive||[]).forEach(it=>{ it.oh=(+it.qty||0); }); state.siCheck=nowDTG(); renderSensitive(); save(); });
   $("addInc").addEventListener("click",()=>{
     const d=new Date();
