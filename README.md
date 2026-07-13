@@ -27,11 +27,15 @@ it works, online or offline.
   Accountability tile (present ÷ accountable, with absentees excluded).
 - **PERSTAT** — personnel counts by element (assigned vs. present). Used for
   Accountability only when the roster is empty, so the old workflow still works.
-- **Heat Condition · WBGT** *(new)* — a Green/Yellow/Red/Black heat flag driven
-  by a Wet Bulb Globe Temperature reading, with activity and hydration guidance
-  for each level. Enter a reading from a heat-stress meter, or pull an estimate
-  from the current weather (temperature + humidity). Guidance is a guideline —
-  always follow your camp medical SOP.
+- **Heat Condition · WBGT** *(new)* — a Category 1–5 heat flag driven by a Wet
+  Bulb Globe Temperature reading, with activity and hydration guidance for each
+  level. **Auto** builds a real full-sun **outdoor** WBGT from the live weather —
+  temperature and humidity (National Weather Service) plus **solar radiation and
+  wind** (Open-Meteo) — using the standard `0.7·wet-bulb + 0.2·black-globe +
+  0.1·dry-bulb` formula. At night or under overcast it reads as a shade value;
+  if solar data can't be reached it falls back to a clearly-labeled shade
+  estimate. Turn Auto off to key in a heat-stress meter reading (still the gold
+  standard). Guidance is a guideline — always follow your camp medical SOP.
 - **Daily Schedule** *(new)* — a full **week × platoon** schedule. Pick a **day**
   (Saturday–Friday), then a **platoon** (Alpha–Hotel), to see that platoon's
   activities for that day. The 2026 camp week is pre-loaded from the schedule

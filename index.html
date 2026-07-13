@@ -495,7 +495,7 @@
   <div class="panel">
     <div class="panel-head"><h2>Heat Condition &bull; WBGT</h2><span class="hint">category 1&ndash;5 &middot; guidance</span></div>
     <div class="panel-body">
-      <div class="panel-sub">Wet Bulb Globe Temperature sets the heat category (1&ndash;5). <b>Auto</b> keeps it updated from the live weather (a shade estimate &mdash; a meter is more accurate in full sun); turn Auto off to enter a meter reading. Always follow your camp medical SOP.</div>
+      <div class="panel-sub">Wet Bulb Globe Temperature sets the heat category (1&ndash;5). <b>Auto</b> keeps it updated from the live weather &mdash; a full-sun <b>outdoor</b> WBGT built from temperature, humidity, <b>solar radiation, and wind</b> (it reads as a shade value at night or under overcast). Turn Auto off to key in a meter reading. A meter is still the gold standard &mdash; always follow your camp medical SOP.</div>
       <div class="heat-wrap">
         <div class="heat-flag heat-NA" id="heatFlag">
           <div class="hf-name" id="heatName">&mdash; set WBGT &mdash;</div>
@@ -856,13 +856,37 @@
     if(wb>=78) return HEATCATS.C1;
     return HEATCATS.BELOW;
   }
-  // Shade WBGT estimate from air temp + humidity (BoM approximation). Underestimates in full sun — a meter is better.
-  const wxObs={tempC:null, rh:null};
+  // WBGT estimate. When solar radiation + wind are known (from Open-Meteo) we build a
+  // real OUTDOOR (full-sun) WBGT: 0.7·natural wet-bulb + 0.2·black-globe + 0.1·dry-bulb.
+  // Without solar (night, overcast, or no data) we fall back to a shade estimate.
+  const wxObs={tempC:null, rh:null, windMS:null, solar:null};
+  const wxEst={mode:null, solar:null, windMS:null};   // mode: sun | shade | noSolar | null
+  const omCur={temp:null, rh:null};                   // Open-Meteo temp/rh, used only as a fallback
+  // Stull (2011) psychrometric wet-bulb, °C. Good to ~±1°C over normal camp conditions.
+  function wetBulbC(tC,rh){
+    return tC*Math.atan(0.151977*Math.sqrt(rh+8.313659))
+      + Math.atan(tC+rh) - Math.atan(rh-1.676331)
+      + 0.00391838*Math.pow(rh,1.5)*Math.atan(0.023101*rh) - 4.686035;
+  }
   function estimateWBGT(){
     const tC=wxObs.tempC, rh=wxObs.rh;
-    if(tC==null||rh==null) return null;
-    const e=(rh/100)*6.105*Math.exp(17.27*tC/(237.7+tC));
-    const wbgtC=0.567*tC+0.393*e+3.94;
+    if(tC==null||rh==null){ wxEst.mode=null; return null; }
+    const Tw=wetBulbC(tC,rh);
+    const S=wxObs.solar, u=(wxObs.windMS!=null?Math.max(wxObs.windMS,0.2):null);
+    // Black-globe temperature. With sun it rises above air temp from the solar load,
+    // tempered by wind (convective cooling); with no sun it collapses back to air temp,
+    // so the same formula gives an indoor/shade WBGT (0.7·wet-bulb + 0.3·dry-bulb).
+    let Tg=tC, mode;
+    if(S!=null && S>10 && u!=null){
+      // Tuned so full noon sun (~900 W/m²) gives ~+17°C in light wind, ~+9°C when breezy.
+      const dTg=S/(15+38*Math.sqrt(u));
+      Tg=tC+Math.min(dTg,30);
+      mode="sun";
+    }else{
+      mode=(S!=null)?"shade":"noSolar";
+    }
+    const wbgtC=0.7*Tw+0.2*Tg+0.1*tC;
+    wxEst.mode=mode; wxEst.solar=S; wxEst.windMS=u;
     return Math.round(wbgtC*9/5+32);
   }
   function renderHeat(){
@@ -881,8 +905,15 @@
     if($("heatSet")) $("heatSet").style.display=auto?"none":"";
     if($("heatEst")) $("heatEst").style.display=auto?"none":"";
     if($("heatEstNote")){
-      if(auto) $("heatEstNote").textContent = est!=null ? ("auto · from weather · updated "+hhmmLocal()) : "auto · waiting for weather…";
-      else $("heatEstNote").textContent = est!=null ? ("estimate ≈ "+est+"° from current weather") : "";
+      const modeTxt = wxEst.mode==="sun" ? "outdoor · full sun"
+                    : wxEst.mode==="shade" ? "shade conditions"
+                    : wxEst.mode==="noSolar" ? "shade estimate · no solar data"
+                    : "";
+      const detail = (wxEst.mode==="sun")
+        ? (" · sun "+Math.round(wxEst.solar)+" W/m², wind "+(wxEst.windMS!=null?wxEst.windMS.toFixed(1):"?")+" m/s")
+        : "";
+      if(auto) $("heatEstNote").textContent = est!=null ? ("auto · "+modeTxt+detail+" · "+hhmmLocal()) : "auto · waiting for weather…";
+      else $("heatEstNote").textContent = est!=null ? ("estimate ≈ "+est+"° ("+modeTxt+")") : "";
     }
   }
   // When Auto is on, keep WBGT in step with the live weather estimate.
@@ -1628,6 +1659,16 @@
         }catch(e){}
         let alerts=[];
         try{ const al=await fetch("https://api.weather.gov/alerts/active?point="+lat.toFixed(4)+","+lon.toFixed(4)).then(r=>r.json()); alerts=al.features||[]; }catch(e){}
+        // Open-Meteo: current solar radiation + wind for a real outdoor (full-sun) WBGT (free, no key).
+        wxObs.solar=null; wxObs.windMS=null; omCur.temp=null; omCur.rh=null;
+        try{
+          const om=await fetch("https://api.open-meteo.com/v1/forecast?latitude="+lat.toFixed(4)+"&longitude="+lon.toFixed(4)+"&current=temperature_2m,relative_humidity_2m,wind_speed_10m,shortwave_radiation&wind_speed_unit=ms").then(r=>{if(!r.ok)throw 0;return r.json();});
+          const c=om.current||{};
+          if(c.shortwave_radiation!=null) wxObs.solar=c.shortwave_radiation;
+          if(c.wind_speed_10m!=null) wxObs.windMS=c.wind_speed_10m;
+          if(c.temperature_2m!=null) omCur.temp=c.temperature_2m;      // °C, fallback if NWS obs missing
+          if(c.relative_humidity_2m!=null) omCur.rh=c.relative_humidity_2m;
+        }catch(e){}
         renderWx(periods,obs,alerts);
         wxStatus("updated "+hhmm());
       }catch(e){ wxStatus("offline / unavailable"); }
@@ -1654,6 +1695,8 @@
     }
     if(tC==null&&cur&&cur.temperature!=null) tC=(cur.temperature-32)*5/9;
     if(rh==null&&cur&&cur.relativeHumidity&&cur.relativeHumidity.value!=null) rh=cur.relativeHumidity.value;
+    if(tC==null&&omCur.temp!=null) tC=omCur.temp;   // Open-Meteo fallback (already °C)
+    if(rh==null&&omCur.rh!=null) rh=omCur.rh;
     wxObs.tempC=tC; wxObs.rh=rh;
     refreshHeatAuto();
     $("wxTemp").textContent=(temp==null?"--":temp)+"\u00b0";
