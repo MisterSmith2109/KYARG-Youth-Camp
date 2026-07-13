@@ -1092,12 +1092,14 @@
     }else{
       list.forEach((r,i)=>{
         const st=schStatus(r);
+        // "Travel" rows have no location, so drop the empty Location box for them.
+        const travelBlank = String(r.activity||"").trim().toLowerCase()==="travel" && !String(r.loc||"").trim();
         const tr=document.createElement("tr");
         tr.className = st==="Now" ? "now-row" : (st==="Canceled" ? "canceled-row" : "");
         tr.innerHTML=
           '<td class="num"><input data-sch="'+i+'" data-f="time" value="'+esc(r.time)+'" placeholder="0900"></td>'+
           '<td><input class="row-label" data-sch="'+i+'" data-f="activity" value="'+esc(r.activity)+'" placeholder="Activity"></td>'+
-          '<td><input data-sch="'+i+'" data-f="loc" value="'+esc(r.loc)+'" placeholder="Location"></td>'+
+          (travelBlank ? '<td></td>' : '<td><input data-sch="'+i+'" data-f="loc" value="'+esc(r.loc)+'" placeholder="Location"></td>')+
           '<td class="num"><span class="status-pill sch-'+st+'">'+st+'</span></td>'+
           '<td class="sch-actions"><button class="mini-btn" data-cancelsch="'+i+'" title="Cancel or restore this event">'+(r.canceled?"Restore":"Cancel")+'</button>'+
             '<button class="icon-btn" data-delsch="'+i+'" title="Remove">×</button></td>';
