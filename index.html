@@ -455,9 +455,9 @@
   <div class="panel">
     <div class="panel-head"><h2>PERSTAT</h2><span class="hint">assigned &rarr; present</span></div>
     <div class="panel-body">
-      <div class="panel-sub">Personnel status &mdash; how many are assigned vs. actually present. (ASG = assigned, PRES = present.)</div>
+      <div class="panel-sub">Auto-summarized from the <b>Roster</b> by role. <b>ASG</b> = people on the roster with that role; <b>O/G</b> (on ground) = how many are signed <b>In</b>; Gap = the rest (out or absent).</div>
       <table>
-        <thead><tr><th>Element</th><th>ASG</th><th>PRES</th><th>Gap</th><th></th></tr></thead>
+        <thead><tr><th>Role</th><th>ASG</th><th>O/G</th><th>Gap</th></tr></thead>
         <tbody id="perBody"></tbody>
         <tbody>
           <tr class="total">
@@ -465,11 +465,9 @@
             <td class="calc" id="perAsg">0</td>
             <td class="calc" id="perPres">0</td>
             <td class="calc" id="perGap">0</td>
-            <td></td>
           </tr>
         </tbody>
       </table>
-      <button class="add-btn" id="addPer">+ Add element</button>
     </div>
   </div>
 
@@ -904,24 +902,32 @@
     if(pct!==null){ if(pct>=100) acc.classList.add("good"); else if(alertGap) acc.classList.add("alert"); }
   }
  
-  // ---------- render PERSTAT ----------
+  // ---------- render PERSTAT (auto-summarized from the roster by role) ----------
+  const PERSTAT_ROLES=["Camper","Staff","Volunteer","Cadre","Support"];
   function renderPer(){
     const b=$("perBody"); b.innerHTML="";
-    state.perstat.forEach((r,i)=>{
-      const tr=document.createElement("tr");
-      const gap=(+r.asg||0)-(+r.pres||0);
-      tr.innerHTML=
-        '<td><input class="row-label" data-per="'+i+'" data-f="label" value="'+esc(r.label)+'"></td>'+
-        '<td class="num"><input type="number" min="0" data-per="'+i+'" data-f="asg" value="'+(r.asg||0)+'"></td>'+
-        '<td class="num"><input type="number" min="0" data-per="'+i+'" data-f="pres" value="'+(r.pres||0)+'"></td>'+
-        '<td class="calc">'+gap+'</td>'+
-        '<td><button class="icon-btn" data-delper="'+i+'" title="Remove">\u00d7</button></td>';
-      b.appendChild(tr);
-    });
-    const t=totals();
-    $("perAsg").textContent=t.asg;
-    $("perPres").textContent=t.pres;
-    $("perGap").textContent=t.gap;
+    const roster=state.roster||[];
+    const present={}; roster.forEach(r=>{ const role=(r.role||"\u2014"); present[role]=true; });
+    const roles=PERSTAT_ROLES.filter(r=>present[r]).concat(Object.keys(present).filter(r=>PERSTAT_ROLES.indexOf(r)<0));
+    let tA=0,tG=0;
+    if(roles.length===0){
+      b.innerHTML='<tr><td colspan="4" class="inc-empty">Add people to the Roster to populate PERSTAT.</td></tr>';
+    }else{
+      roles.forEach(role=>{
+        const asg=roster.filter(r=>(r.role||"\u2014")===role).length;
+        const og=roster.filter(r=>(r.role||"\u2014")===role && r.status==="In").length;
+        const gap=asg-og; tA+=asg; tG+=og;
+        const tr=document.createElement("tr");
+        tr.innerHTML='<td class="row-label">'+esc(role)+'</td>'+
+          '<td class="calc">'+asg+'</td>'+
+          '<td class="calc">'+og+'</td>'+
+          '<td class="calc">'+gap+'</td>';
+        b.appendChild(tr);
+      });
+    }
+    $("perAsg").textContent=tA;
+    $("perPres").textContent=tG;
+    $("perGap").textContent=(tA-tG);
   }
 
   // ---------- render sensitive items ----------
@@ -1043,6 +1049,7 @@
     const summary="<b>"+rc.in+"</b> in · "+rc.out+" out"+(rc.absent?" · "+rc.absent+" absent":"")+" · "+rc.total+" total";
     if($("rosterCount")) $("rosterCount").innerHTML=summary;
     if($("rosterCountHead")) $("rosterCountHead").innerHTML=summary;
+    renderPer(); // PERSTAT is derived from the roster
   }
 
   // ---------- schedule (per day × platoon) ----------
@@ -1214,8 +1221,7 @@
   // delegated table edits
   document.body.addEventListener("input",e=>{
     const t=e.target;
-    if(t.dataset.per!=null){ const r=state.perstat[+t.dataset.per]; const f=t.dataset.f; r[f]=(f==="label")?t.value:(+t.value||0); renderPer(); renderTiles(); save(); }
-    else if(t.dataset.inc!=null){ state.incidents[+t.dataset.inc][t.dataset.f]=t.value; save(); }
+    if(t.dataset.inc!=null){ state.incidents[+t.dataset.inc][t.dataset.f]=t.value; save(); }
     else if(t.dataset.ros!=null){ state.roster[+t.dataset.ros][t.dataset.f]=t.value; save(); }
     else if(t.dataset.sch!=null){ const s=curSched(); if(s&&s[+t.dataset.sch]) s[+t.dataset.sch][t.dataset.f]=t.value; if(t.dataset.f==="time") refreshSchedStatuses(); save(); }
     else if(t.dataset.si!=null){ const it=state.sensitive[+t.dataset.si]; const f=t.dataset.f; it[f]=(f==="name")?t.value:(+t.value||0); if(f!=="name") refreshSi(); save(); }
@@ -1227,8 +1233,7 @@
   // delegated delete + add
   document.body.addEventListener("click",e=>{
     const t=e.target;
-    if(t.dataset.delper!=null){ state.perstat.splice(+t.dataset.delper,1); renderPer(); renderTiles(); save(); }
-    else if(t.dataset.delinc!=null){ state.incidents.splice(+t.dataset.delinc,1); renderInc(); renderTiles(); save(); }
+    if(t.dataset.delinc!=null){ state.incidents.splice(+t.dataset.delinc,1); renderInc(); renderTiles(); save(); }
     else if(t.dataset.delsi!=null){ state.sensitive.splice(+t.dataset.delsi,1); renderSensitive(); save(); }
     else if(t.dataset.delros!=null){ state.roster.splice(+t.dataset.delros,1); renderRoster(); renderTiles(); save(); }
     else if(t.dataset.delsch!=null){ const s=curSched(); if(s) s.splice(+t.dataset.delsch,1); renderSchedule(); save(); }
@@ -1237,7 +1242,6 @@
     else if(t.dataset.dtab!=null){ state.activeDay=+t.dataset.dtab; renderDtabs(); renderSchedule(); save(); }
     else if(t.dataset.ptab!=null){ state.activePlatoon=(t.dataset.ptab==="all")?-1:(+t.dataset.ptab); renderPtabs(); renderSchedule(); save(); }
   });
-  $("addPer").addEventListener("click",()=>{ state.perstat.push({label:"New element",asg:0,pres:0}); renderPer(); renderTiles(); save(); });
   $("siAdd").addEventListener("click",()=>{ state.sensitive.push({name:"",qty:0,oh:0}); renderSensitive(); save(); });
   $("siAllPresent").addEventListener("click",()=>{ (state.sensitive||[]).forEach(it=>{ it.oh=(+it.qty||0); }); state.siCheck=nowDTG(); renderSensitive(); save(); });
   $("addInc").addEventListener("click",()=>{
