@@ -39,7 +39,7 @@ var SECTION_FIELDS = {
   misc:     ['siCheck', 'perstat']
 };
 // Lists that merge per record (each record has an id + _m modified time).
-var LIST_KEYS = ['roster', 'incidents', 'sensitive', 'gsas', 'heatCas'];
+var LIST_KEYS = ['roster', 'incidents', 'sensitive', 'gsas', 'heatCas', 'priorHeat'];
 
 function unionArr(a, b) {
   var seen = {}, out = [];

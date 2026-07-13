@@ -236,6 +236,19 @@
   .wx-fc .p .pn{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--olive-bright)}
   .wx-fc .p .pt{font-family:var(--mono);font-weight:800;font-size:20px}
   .wx-fc .p .ps{font-size:12px;color:var(--muted)}
+  /* 48-hour forecast chart */
+  .wx-forecast{grid-column:1/-1;border-top:1px solid var(--line-soft);padding-top:12px;margin-top:2px}
+  .wx-fc-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+  .wx-fc-title{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+  .wx-fc-legend{display:flex;gap:14px;font-size:11px;color:var(--muted)}
+  .wx-fc-legend .k{display:inline-flex;align-items:center;gap:5px}
+  .wx-fc-legend .sw{width:10px;height:3px;border-radius:2px;display:inline-block}
+  .wx-fc-legend .sw.p{height:9px;width:6px;border-radius:1px}
+  .wx-chart{position:relative;width:100%}
+  .wx-chart svg{display:block;width:100%;height:auto}
+  .wx-chart .wx-tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 9px;font-size:12px;line-height:1.35;color:var(--ink);white-space:nowrap;transform:translate(-50%,-115%);opacity:0;transition:opacity .08s;z-index:3}
+  .wx-chart .wx-tip b{font-family:var(--mono)}
+  .wx-chart .wx-tip .tp{color:#7fbfe0}
   .wx-alerts{display:flex;flex-direction:column;gap:6px;max-width:300px}
   .wx-chip{font-family:var(--mono);font-size:12px;font-weight:700;padding:6px 10px;border-radius:5px;letter-spacing:.03em}
   .wx-chip.warn{background:var(--red);color:#2a0d08}
@@ -443,6 +456,10 @@
       </div>
       <div class="wx-fc" id="wxFc"></div>
       <div class="wx-alerts" id="wxAlerts"></div>
+      <div class="wx-forecast" id="wxForecast" hidden>
+        <div class="wx-fc-head"><span class="wx-fc-title">Next 48 hours</span><span class="wx-fc-legend" id="wxFcLegend"></span></div>
+        <div class="wx-chart" id="wxChart"></div>
+      </div>
     </div>
   </div>
  
@@ -577,21 +594,6 @@
   </div>
   </div>
 
-  <!-- HEAT CASUALTIES -->
-  <div class="panel" id="hcPanel">
-    <div class="panel-head"><h2>Heat Casualties</h2><div class="head-right"><span class="si-chip" id="hcChip"></span></div></div>
-    <div class="panel-body">
-      <div class="hc-emg"><b>Heat stroke is a medical emergency.</b> Hot skin + confusion, staggering, or collapse &rarr; call <b>911</b>, cool the camper immediately (shade, water, ice to neck/armpits/groin), and notify camp medical. Log every heat case here as it happens.</div>
-      <div class="tbl-scroll">
-        <table>
-          <thead><tr><th>Time</th><th>Name</th><th>Type</th><th>Action / disposition</th><th></th></tr></thead>
-          <tbody id="hcBody"></tbody>
-        </table>
-      </div>
-      <button class="add-btn" id="hcAdd">+ Log heat casualty</button>
-    </div>
-  </div>
-
   <!-- DAILY SCHEDULE -->
   <div class="panel">
     <div class="panel-head">
@@ -702,6 +704,36 @@
     </div>
   </div>
 
+  <!-- HEAT CASUALTIES -->
+  <div class="panel" id="hcPanel">
+    <div class="panel-head"><h2>Heat Casualties</h2><div class="head-right"><span class="si-chip" id="hcChip"></span></div></div>
+    <div class="panel-body">
+      <div class="hc-emg"><b>Heat stroke is a medical emergency.</b> Hot skin + confusion, staggering, or collapse &rarr; call <b>911</b>, cool the camper immediately (shade, water, ice to neck/armpits/groin), and notify camp medical. Log every heat case here as it happens.</div>
+      <div class="tbl-scroll">
+        <table>
+          <thead><tr><th>Time</th><th>Name</th><th>Type</th><th>Action / disposition</th><th></th></tr></thead>
+          <tbody id="hcBody"></tbody>
+        </table>
+      </div>
+      <button class="add-btn" id="hcAdd">+ Log heat casualty</button>
+    </div>
+  </div>
+
+  <!-- PRIOR HEAT CASUALTY WATCH LIST -->
+  <div class="panel" id="phPanel">
+    <div class="panel-head"><h2>Prior Heat Casualty &mdash; Watch List</h2><div class="head-right"><span class="si-chip" id="phChip"></span></div></div>
+    <div class="panel-body">
+      <div class="panel-sub">Campers or staff with a <b>known prior history of heat illness</b>. Keep extra eyes on them, prioritize their hydration and rest, and pull them early in high-heat categories. Add anyone flagged by their medical form or a previous heat case.</div>
+      <div class="tbl-scroll">
+        <table>
+          <thead><tr><th>Name</th><th>Group</th><th>Prior history / notes</th><th></th></tr></thead>
+          <tbody id="phBody"></tbody>
+        </table>
+      </div>
+      <button class="add-btn" id="phAdd">+ Add to watch list</button>
+    </div>
+  </div>
+
   <!-- LIVE SYNC -->
   <div class="panel" id="syncPanel">
     <div class="panel-head"><h2>Live Sync</h2><span class="hint">optional &middot; shared board</span></div>
@@ -774,6 +806,7 @@
     sensitive:[{name:"Motorola APX 8000XE", qty:0, oh:0}], siCheck:"",
     gsas:[],
     heatCas:[],
+    priorHeat:[],
     roster:[],
     activeDay:0,
     activePlatoon:-1,
@@ -788,6 +821,7 @@
     if(!Array.isArray(st.sensitive)) st.sensitive=defaults().sensitive;
     if(!Array.isArray(st.gsas)) st.gsas=[];
     if(!Array.isArray(st.heatCas)) st.heatCas=[];
+    if(!Array.isArray(st.priorHeat)) st.priorHeat=[];
     // safe-merge sync bookkeeping: give list records stable ids; keep the merge maps
     if(!st._m||typeof st._m!=="object") st._m={};
     if(!st._tomb||typeof st._tomb!=="object") st._tomb={};
@@ -856,7 +890,7 @@
   let syncUrl=""; try{ syncUrl=localStorage.getItem(SYNC_KEY)||""; }catch(e){}
   let syncPollTimer=null, syncPushTimer=null, syncLastRev=-1, syncApplying=false, syncConnected=false, syncPushPending=false;
   // --- safe-merge metadata (mirrors the rules in sync/Code.gs) ---
-  const SYNC_LISTS=["roster","incidents","sensitive","gsas","heatCas"];
+  const SYNC_LISTS=["roster","incidents","sensitive","gsas","heatCas","priorHeat"];
   const SYNC_SECTIONS={
     header:["campName","day","oic","nco","wx","wxCoords","volLabel","vol","gsaLabel"],
     wbgt:["wbgt","wbgtAuto"],
@@ -1021,6 +1055,7 @@
   const wxObs={tempC:null, rh:null, windMS:null, solar:null};
   const wxEst={mode:null, solar:null, windMS:null};   // mode: sun | shade | noSolar | null
   const omCur={temp:null, rh:null};                   // Open-Meteo temp/rh, used only as a fallback
+  let wxHourly=null;                                  // 48h hourly forecast {time,tempF,precip,code,isDay}
   // Stull (2011) psychrometric wet-bulb, °C. Good to ~±1°C over normal camp conditions.
   function wetBulbC(tC,rh){
     return tC*Math.atan(0.151977*Math.sqrt(rh+8.313659))
@@ -1345,6 +1380,26 @@
     const chip=$("hcChip"); if(chip) chip.textContent = n ? (n+" logged"+(stroke?" · "+stroke+" stroke":"")) : "none";
   }
 
+  // ---------- render prior heat-casualty watch list ----------
+  function renderPriorHeat(){
+    const b=$("phBody"); if(!b) return; b.innerHTML="";
+    const list=state.priorHeat||[];
+    if(list.length===0){
+      b.innerHTML='<tr><td colspan="4" class="inc-empty">No one on the watch list. Add anyone with a prior heat-illness history.</td></tr>';
+    }else{
+      list.forEach((c,i)=>{
+        const tr=document.createElement("tr");
+        tr.innerHTML=
+          '<td><input class="row-label" data-ph="'+i+'" data-f="name" value="'+esc(c.name)+'" placeholder="Name"></td>'+
+          '<td><input data-ph="'+i+'" data-f="group" value="'+esc(c.group)+'" placeholder="Group / platoon"></td>'+
+          '<td><input data-ph="'+i+'" data-f="notes" value="'+esc(c.notes)+'" placeholder="e.g. heat exhaustion 2024; asthma"></td>'+
+          '<td><button class="icon-btn" data-delph="'+i+'" title="Remove">×</button></td>';
+        b.appendChild(tr);
+      });
+    }
+    const chip=$("phChip"); if(chip) chip.textContent = list.length ? (list.length+" on watch") : "none";
+  }
+
   // ---------- render incidents ----------
   function renderInc(){
     const b=$("incBody"); b.innerHTML="";
@@ -1645,7 +1700,7 @@
     });
   }
 
-  function renderAll(){ renderTiles(); renderPer(); renderSensitive(); renderGsa(); renderHeatCas(); renderInc(); renderRoster(); renderDtabs(); renderPtabs(); renderSchedule(); renderHeat(); }
+  function renderAll(){ renderTiles(); renderPer(); renderSensitive(); renderGsa(); renderHeatCas(); renderPriorHeat(); renderInc(); renderRoster(); renderDtabs(); renderPtabs(); renderSchedule(); renderHeat(); }
  
   // ---------- events ----------
   // header + tile fields
@@ -1662,6 +1717,7 @@
     else if(t.dataset.si!=null){ const it=state.sensitive[+t.dataset.si]; const f=t.dataset.f; it[f]=(f==="name")?t.value:(+t.value||0); if(f!=="name") refreshSi(); save(); }
     else if(t.dataset.gsa!=null){ const g=state.gsas[+t.dataset.gsa]; g[t.dataset.f]=t.value; if(t.dataset.f==="holder"){ renderTiles(); const c=$("gsaChip"); if(c){ const l=state.gsas; c.textContent=l.filter(x=>String(x.holder||"").trim()).length+" out · "+l.length+" total"; } } save(); }
     else if(t.dataset.hc!=null){ const c=state.heatCas[+t.dataset.hc]; if(c){ c[t.dataset.f]=t.value; save(); } }
+    else if(t.dataset.ph!=null){ const c=state.priorHeat[+t.dataset.ph]; if(c){ c[t.dataset.f]=t.value; save(); } }
   });
   document.body.addEventListener("change",e=>{
     const t=e.target;
@@ -1675,6 +1731,7 @@
     else if(t.dataset.delsi!=null){ state.sensitive.splice(+t.dataset.delsi,1); renderSensitive(); save(); }
     else if(t.dataset.delgsa!=null){ state.gsas.splice(+t.dataset.delgsa,1); renderGsa(); renderTiles(); save(); }
     else if(t.dataset.delhc!=null){ state.heatCas.splice(+t.dataset.delhc,1); renderHeatCas(); save(); }
+    else if(t.dataset.delph!=null){ state.priorHeat.splice(+t.dataset.delph,1); renderPriorHeat(); save(); }
     else if(t.dataset.delros!=null){ state.roster.splice(+t.dataset.delros,1); renderRoster(); renderTiles(); save(); }
     else if(t.dataset.delsch!=null){ const s=curSched(); if(s) s.splice(+t.dataset.delsch,1); renderSchedule(); save(); }
     else if(t.dataset.cancelsch!=null){ const s=curSched(); if(s&&s[+t.dataset.cancelsch]){ const r=s[+t.dataset.cancelsch]; r.canceled=!r.canceled; } renderSchedule(); save(); }
@@ -1685,6 +1742,7 @@
   $("siAdd").addEventListener("click",()=>{ state.sensitive.push({id:newId(),name:"",qty:0,oh:0}); renderSensitive(); save(); });
   $("gsaAdd").addEventListener("click",()=>{ state.gsas.push({id:newId(),name:"",holder:"",loc:""}); renderGsa(); renderTiles(); save(); });
   $("hcAdd").addEventListener("click",()=>{ state.heatCas.push({id:newId(),time:hhmmLocal(),name:"",type:"Heat exhaustion",action:""}); renderHeatCas(); save(); });
+  $("phAdd").addEventListener("click",()=>{ state.priorHeat.push({id:newId(),name:"",group:"",notes:""}); renderPriorHeat(); save(); });
   $("wrStart").addEventListener("click",wrStart);
   $("wrStop").addEventListener("click",wrStop);
   $("wrSkip").addEventListener("click",()=>{ if(wr.running){ wrAdvance(); renderWR(); } });
@@ -1858,6 +1916,8 @@
     { const hc=state.heatCas||[]; if(hc.length){ const stroke=hc.filter(c=>c.type==="Heat stroke").length;
         L.push("HEAT CASUALTIES: "+hc.length+(stroke?" ("+stroke+" HEAT STROKE)":""));
         hc.forEach(c=>{ L.push("  "+(String(c.time||"").trim()||"----")+" "+(String(c.name||"").trim()||"(unnamed)")+" — "+(c.type||"")+(String(c.action||"").trim()?": "+c.action.trim():"")); }); } }
+    { const ph=state.priorHeat||[]; if(ph.length){ L.push("HEAT WATCH (prior history): "+ph.length);
+        ph.forEach(c=>{ L.push("  "+(String(c.name||"").trim()||"(unnamed)")+(String(c.group||"").trim()?" / "+c.group.trim():"")+(String(c.notes||"").trim()?" — "+c.notes.trim():"")); }); } }
     L.push("");
     { const pt=perstatTotals(); L.push("ON GROUND: "+pt.pres+" / "+pt.asg); }
     L.push("INCIDENT REPORTS: "+state.incidents.length+" ("+state.incidents.filter(i=>i.status!=="Closed").length+" open)");
@@ -2021,15 +2081,26 @@
         }catch(e){}
         let alerts=[];
         try{ const al=await fetch("https://api.weather.gov/alerts/active?point="+lat.toFixed(4)+","+lon.toFixed(4)).then(r=>r.json()); alerts=al.features||[]; }catch(e){}
-        // Open-Meteo: current solar radiation + wind for a real outdoor (full-sun) WBGT (free, no key).
-        wxObs.solar=null; wxObs.windMS=null; omCur.temp=null; omCur.rh=null;
+        // Open-Meteo (free, no key): current solar + wind for the outdoor WBGT, and a
+        // 48-hour hourly forecast for the temperature chart. timezone=auto → camp-local hours.
+        wxObs.solar=null; wxObs.windMS=null; omCur.temp=null; omCur.rh=null; wxHourly=null;
         try{
-          const om=await fetch("https://api.open-meteo.com/v1/forecast?latitude="+lat.toFixed(4)+"&longitude="+lon.toFixed(4)+"&current=temperature_2m,relative_humidity_2m,wind_speed_10m,shortwave_radiation&wind_speed_unit=ms").then(r=>{if(!r.ok)throw 0;return r.json();});
+          const om=await fetch("https://api.open-meteo.com/v1/forecast?latitude="+lat.toFixed(4)+"&longitude="+lon.toFixed(4)+
+            "&current=temperature_2m,relative_humidity_2m,wind_speed_10m,shortwave_radiation"+
+            "&hourly=temperature_2m,precipitation_probability,weather_code,is_day&forecast_hours=48&wind_speed_unit=ms&timezone=auto").then(r=>{if(!r.ok)throw 0;return r.json();});
           const c=om.current||{};
           if(c.shortwave_radiation!=null) wxObs.solar=c.shortwave_radiation;
           if(c.wind_speed_10m!=null) wxObs.windMS=c.wind_speed_10m;
           if(c.temperature_2m!=null) omCur.temp=c.temperature_2m;      // °C, fallback if NWS obs missing
           if(c.relative_humidity_2m!=null) omCur.rh=c.relative_humidity_2m;
+          const h=om.hourly;
+          if(h && Array.isArray(h.time) && h.time.length){
+            wxHourly={ time:h.time,
+              tempF:(h.temperature_2m||[]).map(t=>t==null?null:Math.round(t*9/5+32)),
+              precip:h.precipitation_probability||[],
+              code:h.weather_code||[],
+              isDay:h.is_day||[] };
+          }
         }catch(e){}
         renderWx(periods,obs,alerts);
         wxStatus("updated "+hhmm());
@@ -2086,8 +2157,107 @@
         aEl.appendChild(c);
       });
     }
+    renderForecast();
   }
- 
+
+  // ---------- 48-hour forecast temperature chart (Open-Meteo hourly) ----------
+  function wmoText(c){
+    c=+c;
+    if(c===0) return "Clear"; if(c===1) return "Mostly clear"; if(c===2) return "Partly cloudy"; if(c===3) return "Overcast";
+    if(c===45||c===48) return "Fog"; if(c>=51&&c<=57) return "Drizzle";
+    if(c>=61&&c<=67) return "Rain"; if(c>=71&&c<=77) return "Snow";
+    if(c>=80&&c<=82) return "Showers"; if(c===85||c===86) return "Snow showers";
+    if(c>=95) return "Thunderstorm"; return "";
+  }
+  function renderForecast(){
+    const box=$("wxForecast"), host=$("wxChart"); if(!box||!host) return;
+    const H=wxHourly;
+    if(!H||!H.tempF||H.tempF.length<2){ box.hidden=true; host.innerHTML=""; return; }
+    box.hidden=false;
+    const n=H.tempF.length;
+    const W=960, HT=200, padL=12, padR=12, plotTop=20, plotBot=138;
+    const precipBase=172, precipMax=26, axisLineY=176, axisTextY=191;
+    const plotW=W-padL-padR;
+    const xAt=i=>padL+(n<=1?0:i/(n-1)*plotW);
+    let lo=Infinity, hi=-Infinity, hiIx=0, loIx=0;
+    H.tempF.forEach((t,i)=>{ if(t==null) return; if(t>hi){hi=t;hiIx=i;} if(t<lo){lo=t;loIx=i;} });
+    if(!isFinite(lo)){ box.hidden=true; return; }
+    const yLo=lo-2, yHi=(hi>lo?hi:lo+1)+2;
+    const yAt=t=>plotBot-(t-yLo)/(yHi-yLo)*(plotBot-plotTop);
+    // hour parsed straight from the local ISO string (timezone=auto), avoids browser-TZ drift
+    const hourOf=i=>{ const s=String(H.time[i]||""); const m=s.match(/T(\d{2}):/); return m?+m[1]:0; };
+    const dayOf=i=>{ const s=String(H.time[i]||""); return s.slice(0,10); };
+    const WD=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    const wdOf=i=>{ const s=String(H.time[i]||"").slice(0,10); if(!/^\d{4}-\d{2}-\d{2}$/.test(s)) return ""; const p=s.split("-"); const d=new Date(Date.UTC(+p[0],+p[1]-1,+p[2])); return WD[d.getUTCDay()]; };
+
+    let svg='<svg viewBox="0 0 '+W+' '+HT+'" preserveAspectRatio="none" role="img" aria-label="48-hour temperature forecast">';
+    svg+='<defs><linearGradient id="wxTg" x1="0" y1="0" x2="0" y2="1">'+
+      '<stop offset="0" stop-color="#e0a53b" stop-opacity="0.34"/><stop offset="1" stop-color="#e0a53b" stop-opacity="0.02"/></linearGradient></defs>';
+    // daytime wash + day-boundary lines
+    let bands="", grid="", ticks="";
+    for(let i=0;i<n;i++){
+      const x0=xAt(i)-(plotW/(n-1))/2, x1=xAt(i)+(plotW/(n-1))/2;
+      if(+H.isDay[i]===1) bands+='<rect x="'+Math.max(padL,x0).toFixed(1)+'" y="'+plotTop+'" width="'+Math.max(0,(Math.min(W-padR,x1)-Math.max(padL,x0))).toFixed(1)+'" height="'+(plotBot-plotTop)+'" fill="#a8b86a" opacity="0.05"/>';
+      const h=hourOf(i);
+      if(h%6===0){ // 6-hourly gridline + tick label
+        const x=xAt(i).toFixed(1);
+        grid+='<line x1="'+x+'" y1="'+plotTop+'" x2="'+x+'" y2="'+plotBot+'" stroke="#3a3f30" stroke-width="1" opacity="0.5"/>';
+        const lab=(h%12||12)+(h<12?"a":"p");
+        ticks+='<text x="'+x+'" y="'+axisTextY+'" fill="#9aa085" font-size="12" text-anchor="middle" font-family="ui-monospace,monospace">'+lab+'</text>';
+        if(h===0){ ticks+='<text x="'+x+'" y="'+(axisTextY-13)+'" fill="#9aa085" font-size="10" text-anchor="middle" font-family="ui-monospace,monospace" opacity="0.85">'+wdOf(i)+'</text>';
+                   grid+='<line x1="'+x+'" y1="'+plotTop+'" x2="'+x+'" y2="'+axisLineY+'" stroke="#3a3f30" stroke-width="1"/>'; }
+      }
+    }
+    // precip probability bars
+    let precip="";
+    for(let i=0;i<n;i++){ const p=+H.precip[i]||0; if(p<5) continue;
+      const bh=precipMax*(p/100), bw=Math.max(1.5,(plotW/(n-1))*0.6);
+      precip+='<rect x="'+(xAt(i)-bw/2).toFixed(1)+'" y="'+(precipBase-bh).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+bh.toFixed(1)+'" fill="#5aa6cc" opacity="0.55" rx="1"/>';
+    }
+    // temperature area + line
+    let line="", area="M "+padL+" "+plotBot;
+    H.tempF.forEach((t,i)=>{ if(t==null) return; const x=xAt(i).toFixed(1), y=yAt(t).toFixed(1); line+=(line?" L ":"M ")+x+" "+y; area+=" L "+x+" "+y; });
+    area+=" L "+(W-padR)+" "+plotBot+" Z";
+    svg+=bands+grid+'<path d="'+area+'" fill="url(#wxTg)"/>'+precip+
+      '<path d="'+line+'" fill="none" stroke="#e0a53b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>';
+    // hi / lo direct labels
+    const mk=(ix,val,dy,anchor)=>{ const x=xAt(ix), y=yAt(val);
+      return '<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="3" fill="#e0a53b"/>'+
+        '<text x="'+x.toFixed(1)+'" y="'+(y+dy).toFixed(1)+'" fill="#e9ead9" font-size="12.5" font-weight="700" text-anchor="'+anchor+'" font-family="ui-monospace,monospace">'+val+'°</text>'; };
+    svg+=mk(hiIx,hi,-8,hiIx>n-6?"end":(hiIx<6?"start":"middle"));
+    svg+=mk(loIx,lo,15,loIx>n-6?"end":(loIx<6?"start":"middle"));
+    // now marker
+    const c=campNow(); const nowX=(padL+((0+c.m/60)/(n-1))*plotW);
+    svg+='<line x1="'+nowX.toFixed(1)+'" y1="'+plotTop+'" x2="'+nowX.toFixed(1)+'" y2="'+precipBase+'" stroke="#a8b86a" stroke-width="1.5" stroke-dasharray="3 3"/>'+
+      '<text x="'+nowX.toFixed(1)+'" y="'+(plotTop-6)+'" fill="#a8b86a" font-size="10" text-anchor="middle" font-family="ui-monospace,monospace" letter-spacing="0.1em">NOW</text>';
+    svg+=ticks; // time-axis labels (drawn on top)
+    // hover crosshair + focus dot (updated by JS)
+    svg+='<line id="wxCross" x1="0" y1="'+plotTop+'" x2="0" y2="'+precipBase+'" stroke="#e9ead9" stroke-width="1" opacity="0"/>'+
+      '<circle id="wxDot" cx="0" cy="0" r="4" fill="#e0a53b" stroke="#1b1e16" stroke-width="1.5" opacity="0"/>';
+    svg+='<rect id="wxHit" x="0" y="0" width="'+W+'" height="'+HT+'" fill="transparent"/></svg>';
+    host.innerHTML=svg+'<div class="wx-tip" id="wxTip"></div>';
+    $("wxFcLegend").innerHTML='<span class="k"><span class="sw" style="background:#e0a53b"></span>temp</span><span class="k"><span class="sw p" style="background:#5aa6cc"></span>rain %</span>';
+
+    // hover interaction
+    const svgEl=host.querySelector("svg"), tip=$("wxTip"), cross=$("wxCross"), dot=$("wxDot");
+    const move=ev=>{
+      const r=svgEl.getBoundingClientRect();
+      const px=(ev.touches?ev.touches[0].clientX:ev.clientX)-r.left;
+      const vx=px/r.width*W;
+      let i=Math.round((vx-padL)/plotW*(n-1)); i=Math.max(0,Math.min(n-1,i));
+      const t=H.tempF[i]; if(t==null) return;
+      const x=xAt(i), y=yAt(t);
+      cross.setAttribute("x1",x); cross.setAttribute("x2",x); cross.setAttribute("opacity","0.5");
+      dot.setAttribute("cx",x); dot.setAttribute("cy",y); dot.setAttribute("opacity","1");
+      const h=hourOf(i), lab=(h%12||12)+(h<12?" AM":" PM"), cond=wmoText(H.code[i]), pr=+H.precip[i]||0;
+      tip.innerHTML='<b>'+wdOf(i)+' '+lab+'</b> &middot; <b>'+t+'°F</b>'+(cond?'<br>'+cond:'')+'<br><span class="tp">rain '+pr+'%</span>';
+      tip.style.left=(x/W*r.width)+"px"; tip.style.top=(y/HT*r.height)+"px"; tip.style.opacity="1";
+    };
+    const leave=()=>{ tip.style.opacity="0"; cross.setAttribute("opacity","0"); dot.setAttribute("opacity","0"); };
+    svgEl.addEventListener("mousemove",move); svgEl.addEventListener("mouseleave",leave);
+    svgEl.addEventListener("touchstart",move,{passive:true}); svgEl.addEventListener("touchmove",move,{passive:true}); svgEl.addEventListener("touchend",leave);
+  }
+
   $("wxSet").addEventListener("click",()=>{ state.wxCoords=$("wxCoords").value.trim(); save(); WX.load(); });
   $("wxCoords").addEventListener("keydown",e=>{ if(e.key==="Enter"){ state.wxCoords=$("wxCoords").value.trim(); save(); WX.load(); } });
   $("wxRefresh").addEventListener("click",()=>WX.load());
