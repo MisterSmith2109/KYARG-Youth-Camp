@@ -477,7 +477,7 @@
   <div class="panel">
     <div class="panel-head"><h2>Heat Condition &bull; WBGT</h2><span class="hint">category 1&ndash;5 &middot; guidance</span></div>
     <div class="panel-body">
-      <div class="panel-sub">Wet Bulb Globe Temperature sets the heat category (1&ndash;5). Enter your meter reading, or pull an estimate from current weather. Always follow your camp medical SOP.</div>
+      <div class="panel-sub">Wet Bulb Globe Temperature sets the heat category (1&ndash;5). <b>Auto</b> keeps it updated from the live weather (a shade estimate &mdash; a meter is more accurate in full sun); turn Auto off to enter a meter reading. Always follow your camp medical SOP.</div>
       <div class="heat-wrap">
         <div class="heat-flag heat-NA" id="heatFlag">
           <div class="hf-name" id="heatName">&mdash; set WBGT &mdash;</div>
@@ -490,6 +490,7 @@
         </div>
       </div>
       <div class="heat-controls">
+        <label class="chk"><input type="checkbox" id="heatAuto"> Auto (from weather)</label>
         <input id="heatInput" type="number" inputmode="decimal" placeholder="WBGT &deg;F" aria-label="WBGT reading">
         <button class="btn2" id="heatSet">Set</button>
         <button class="btn2" id="heatEst">Use weather estimate</button>
@@ -640,7 +641,7 @@
     campName:"KYARNG Youth Camp",
     day:"", oic:"", nco:"", wx:"",
     wxCoords:"37.3849, -86.2335",
-    wbgt:null,
+    wbgt:null, wbgtAuto:true,
     volLabel:"Volunteers", vol:0,
     gsaLabel:"GSAs", gsa:0,
     perstat:[
@@ -653,7 +654,7 @@
     sensitive:[{name:"Motorola APX 8000XE", qty:0, oh:0}], siCheck:"",
     roster:[],
     activeDay:0,
-    activePlatoon:0,
+    activePlatoon:-1,
     platoons: CAMP_PLATOONS.map(function(n){ return {name:n, sched:buildWeek(n)}; })
   });
  
@@ -674,7 +675,7 @@
       CAMP_DAYS.forEach(d=>{ if(!Array.isArray(pl.sched[d])) pl.sched[d]=[]; });
       if(pl.name==null) pl.name=CAMP_PLATOONS[i]||("Platoon "+(i+1));
     });
-    if(typeof st.activePlatoon!=="number"||st.activePlatoon<0||st.activePlatoon>=st.platoons.length) st.activePlatoon=0;
+    if(typeof st.activePlatoon!=="number"||st.activePlatoon<-1||st.activePlatoon>=st.platoons.length) st.activePlatoon=0; // -1 = All view
     if(typeof st.activeDay!=="number"||st.activeDay<0||st.activeDay>=CAMP_DAYS.length) st.activeDay=0;
     delete st.schedule;
     return st;
@@ -713,6 +714,7 @@
     $("mDay").value=state.day||""; $("mOic").value=state.oic||""; $("mNco").value=state.nco||""; $("mWx").value=state.wx||"";
     $("wxCoords").value=state.wxCoords||"";
     $("heatInput").value=(state.wbgt!=null?state.wbgt:"");
+    if($("heatAuto")) $("heatAuto").checked=!!state.wbgtAuto;
     if($("feedUrl")) $("feedUrl").value=state.feedUrl||"";
     if($("feedAuto")) $("feedAuto").checked=!!state.feedAuto;
     const _st=$("soTitle"); if(_st) _st.textContent=state.campName||"";
@@ -852,8 +854,24 @@
     if($("heatWbgt")) $("heatWbgt").textContent=(wb==null?"--":Math.round(wb));
     if($("heatWork")) $("heatWork").textContent=cat.work;
     if($("heatWater")) $("heatWater").textContent=cat.water;
-    const est=estimateWBGT();
-    if($("heatEstNote")) $("heatEstNote").textContent = est!=null ? ("estimate ≈ "+est+"° from current weather") : "";
+    const auto=!!state.wbgtAuto, est=estimateWBGT();
+    // in Auto mode the reading comes from the weather, so lock the manual controls
+    if($("heatAuto")) $("heatAuto").checked=auto;
+    if($("heatInput")){ $("heatInput").disabled=auto; if(auto) $("heatInput").value=(wb==null?"":Math.round(wb)); }
+    if($("heatSet")) $("heatSet").style.display=auto?"none":"";
+    if($("heatEst")) $("heatEst").style.display=auto?"none":"";
+    if($("heatEstNote")){
+      if(auto) $("heatEstNote").textContent = est!=null ? ("auto · from weather · updated "+hhmmLocal()) : "auto · waiting for weather…";
+      else $("heatEstNote").textContent = est!=null ? ("estimate ≈ "+est+"° from current weather") : "";
+    }
+  }
+  // When Auto is on, keep WBGT in step with the live weather estimate.
+  function refreshHeatAuto(){
+    if(state.wbgtAuto){
+      const est=estimateWBGT();
+      if(est!=null && (state.wbgt==null || +state.wbgt!==est)){ state.wbgt=est; save(); }
+    }
+    renderHeat();
   }
 
   // ---------- render tiles ----------
@@ -1361,14 +1379,15 @@
   $("dtabRow").addEventListener("click",()=>{ if(ptDelArmed) resetPtDel(); });
 
   // heat / WBGT controls
-  function setWbgt(v){ state.wbgt=(v===""||isNaN(parseFloat(v)))?null:parseFloat(v); renderHeat(); save(); }
+  function setWbgt(v){ state.wbgt=(v===""||isNaN(parseFloat(v)))?null:parseFloat(v); state.wbgtAuto=false; renderHeat(); save(); }
   $("heatSet").addEventListener("click",()=>setWbgt($("heatInput").value));
   $("heatInput").addEventListener("keydown",e=>{ if(e.key==="Enter") setWbgt(e.target.value); });
   $("heatEst").addEventListener("click",()=>{
     const est=estimateWBGT();
     if(est==null){ $("heatEstNote").textContent="need live weather first — set coordinates, then Refresh"; return; }
-    state.wbgt=est; $("heatInput").value=est; renderHeat(); save();
+    state.wbgt=est; state.wbgtAuto=false; $("heatInput").value=est; renderHeat(); save();
   });
+  $("heatAuto").addEventListener("change",e=>{ state.wbgtAuto=e.target.checked; refreshHeatAuto(); save(); });
 
   function sitrep(){
     const d=new Date(); const t=totals();
@@ -1572,7 +1591,7 @@
     if(tC==null&&cur&&cur.temperature!=null) tC=(cur.temperature-32)*5/9;
     if(rh==null&&cur&&cur.relativeHumidity&&cur.relativeHumidity.value!=null) rh=cur.relativeHumidity.value;
     wxObs.tempC=tC; wxObs.rh=rh;
-    renderHeat();
+    refreshHeatAuto();
     $("wxTemp").textContent=(temp==null?"--":temp)+"\u00b0";
     $("wxCond").textContent=cond||"--";
     $("wxFeels").textContent=(feels!=null&&feels!==temp)?("feels like "+feels+"\u00b0"):"";
