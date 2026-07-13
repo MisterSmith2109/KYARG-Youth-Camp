@@ -57,9 +57,18 @@ Press **Disconnect** to go back to a private, local-only board on that computer.
 
 ## How it behaves
 
-- **Whoever saves last wins.** This is a status board with low simultaneous
-  editing, so it uses simple last-write-wins. If two people edit the very same
-  field at the very same moment, the later save is kept.
+- **Changes merge — they don't clobber each other.** The server combines edits
+  from every computer instead of letting the last save overwrite the board. So
+  if one laptop signs a camper in while another edits the schedule, **both**
+  survive; and two people signing different campers in at the same time both
+  stick. This matters most when you're running **more than one TOC laptop**.
+  Lists (roster, incidents, sensitive items, GSAs, heat casualties) merge person
+  by person / item by item, including deletions. The only case that still falls
+  back to last-write-wins is two people editing the **exact same record's fields**
+  (e.g. the same camper) within the same moment — rare in practice.
+- **Clocks should be roughly in sync.** The merge uses each computer's clock to
+  decide which edit is newer, so keep the laptops' clocks set correctly (normal
+  internet time-sync is fine).
 - **Offline is fine.** If a computer loses internet, it keeps working locally and
   resumes syncing when it's back; the status shows *"offline — retrying."*
 - **The schedule syncs too**, so if you rename a platoon or tweak an activity on
@@ -70,6 +79,11 @@ Press **Disconnect** to go back to a private, local-only board on that computer.
 If you ever change `sync/Code.gs`, open the Apps Script project, paste the new
 code, then **Deploy → Manage deployments → edit (pencil) → Version: New version →
 Deploy**. The `/exec` URL stays the same, so you don't need to re-paste it.
+
+> **Upgrading to the safe-merge version:** if you set sync up before merging was
+> added, redeploy `sync/Code.gs` as a **New version** (above) **and** open the
+> updated `index.html` on every computer so they all speak the same format. Until
+> the script is redeployed it still works, but falls back to last-write-wins.
 
 ## Troubleshooting
 

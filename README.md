@@ -92,6 +92,12 @@ share one board that updates on all of them within a few seconds — roster
 sign-in, incidents, heat flag, schedule edits, and header fields all sync. Each
 device keeps its own day/platoon *view*.
 
+Edits from different computers **merge** rather than overwrite each other: the
+server combines them under a lock, so a roster sign-in on one laptop and a
+schedule edit on another both survive, and two people signing different campers
+in at once both stick. Lists merge record-by-record (including deletions); only
+two edits to the *same* record at the same instant fall back to last-write-wins.
+
 It runs through a tiny **Google Apps Script** you deploy once (free, uses your
 existing Google account, no Google Sheet needed). Paste the resulting link into
 the Live Sync box on each computer and press **Connect**. Full step-by-step

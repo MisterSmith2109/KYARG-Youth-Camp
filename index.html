@@ -788,6 +788,10 @@
     if(!Array.isArray(st.sensitive)) st.sensitive=defaults().sensitive;
     if(!Array.isArray(st.gsas)) st.gsas=[];
     if(!Array.isArray(st.heatCas)) st.heatCas=[];
+    // safe-merge sync bookkeeping: give list records stable ids; keep the merge maps
+    if(!st._m||typeof st._m!=="object") st._m={};
+    if(!st._tomb||typeof st._tomb!=="object") st._tomb={};
+    SYNC_LISTS.forEach(k=>{ if(Array.isArray(st[k])) st[k].forEach(r=>{ if(r&&typeof r==="object"&&r.id==null) r.id=newId(); }); });
     if(!Array.isArray(st.platoons)||!st.platoons.length) st.platoons=defaults().platoons;
     st.platoons.forEach((pl,i)=>{
       if(!pl||typeof pl!=="object"){ st.platoons[i]={name:CAMP_PLATOONS[i]||("Platoon "+(i+1)), sched:emptyWeek()}; return; }
@@ -851,6 +855,49 @@
   const myDeviceId="dev-"+Math.random().toString(36).slice(2,10);
   let syncUrl=""; try{ syncUrl=localStorage.getItem(SYNC_KEY)||""; }catch(e){}
   let syncPollTimer=null, syncPushTimer=null, syncLastRev=-1, syncApplying=false, syncConnected=false, syncPushPending=false;
+  // --- safe-merge metadata (mirrors the rules in sync/Code.gs) ---
+  const SYNC_LISTS=["roster","incidents","sensitive","gsas","heatCas"];
+  const SYNC_SECTIONS={
+    header:["campName","day","oic","nco","wx","wxCoords","volLabel","vol","gsaLabel"],
+    wbgt:["wbgt","wbgtAuto"],
+    feed:["feedUrl","feedAuto"],
+    platoons:["platoons"],
+    misc:["siCheck","perstat"]
+  };
+  let syncSeq=0, syncBase={};   // syncBase = last board the server gave us; we diff against it to tag our own edits
+  function newId(){ return "i"+Date.now().toString(36)+"-"+(syncSeq++).toString(36)+Math.random().toString(36).slice(2,6); }
+  const _recJson=r=>{ const c={}; for(const k in r){ if(k!=="_m") c[k]=r[k]; } return JSON.stringify(c); };
+  const _eqF=(a,b)=>JSON.stringify(a===undefined?null:a)===JSON.stringify(b===undefined?null:b);
+  // Tag what THIS device changed since the last board it received, so the server merges
+  // per-record / per-section instead of overwriting. Touches only sync bookkeeping fields.
+  function syncStampForPush(){
+    const base=syncBase||{}, now=Date.now();
+    if(!state._m) state._m={};
+    if(!state._tomb) state._tomb={};
+    SYNC_LISTS.forEach(k=>{
+      const cur=state[k]||[], baseById={};
+      (base[k]||[]).forEach(r=>{ if(r&&r.id!=null) baseById[r.id]=r; });
+      const seen={};
+      cur.forEach(r=>{ if(!r||typeof r!=="object") return;
+        if(r.id==null) r.id=newId();
+        seen[r.id]=1;
+        const b=baseById[r.id];
+        if(!b || _recJson(r)!==_recJson(b)) r._m=now;   // new or changed
+        else if(r._m==null) r._m=b._m||0;               // unchanged: keep the base time
+      });
+      const tomb=state._tomb[k]||{}, bt=(base._tomb&&base._tomb[k])||{};
+      for(const id in bt) tomb[id]=Math.max(tomb[id]||0, bt[id]);
+      for(const id in baseById){ if(!seen[id]) tomb[id]=now; } // deleted since base
+      for(const id in tomb){ if(now-tomb[id]>=86400000) delete tomb[id]; }
+      state._tomb[k]=tomb;
+    });
+    for(const sec in SYNC_SECTIONS){
+      let changed=false;
+      SYNC_SECTIONS[sec].forEach(f=>{ if(!_eqF(state[f], base[f])) changed=true; });
+      if(changed) state._m[sec]=now;
+      else if(state._m[sec]==null) state._m[sec]=(base._m&&base._m[sec])||0;
+    }
+  }
   function syncSetStatus(txt,cls){
     const el=$("syncStatus"); if(el){ el.textContent=txt; el.className="sync-status"+(cls?(" "+cls):""); }
     const dot=$("syncDot"); if(dot) dot.className="sync-dot"+(cls==="ok"?" on":"");
@@ -858,6 +905,7 @@
   function hhmmLocal(){ const c=campNow(); return pad(c.h)+":"+pad(c.m); }
   function applyRemote(board){
     syncApplying=true;
+    syncBase=JSON.parse(JSON.stringify(board)); // remember the server's merged board as our diff base
     const keepDay=state.activeDay, keepPlat=state.activePlatoon; // day/platoon selection stays per-device
     state=migrateState(board);
     if(typeof keepDay==="number" && keepDay>=0 && keepDay<CAMP_DAYS.length) state.activeDay=keepDay;
@@ -876,8 +924,10 @@
     const rev=+(env._rev||0), board=env.board;
     if(rev>syncLastRev){
       syncLastRev=rev;
-      // apply others' changes, but not our own echo, and not on top of a pending local write
-      if(board && typeof board==="object" && board._by!==myDeviceId && !syncPushPending){ applyRemote(board); }
+      // The server board is the merged union of all devices, so applying it can't drop
+      // another device's change. Skip only while we have a local write in flight (that
+      // edit isn't on the server yet); it lands, gets merged, and arrives on the next poll.
+      if(board && typeof board==="object" && !syncPushPending){ applyRemote(board); }
     }
     syncSetStatus("synced "+hhmmLocal(),"ok");
   }
@@ -886,6 +936,7 @@
     syncPushPending=true;
     clearTimeout(syncPushTimer);
     syncPushTimer=setTimeout(()=>{
+      syncStampForPush(); // tag our own edits so the server merges instead of overwriting
       state._by=myDeviceId; state._ts=Date.now();
       syncSetStatus("saving\u2026","");
       fetch(syncUrl,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(state)})
@@ -899,6 +950,7 @@
     syncUrl=url; try{ localStorage.setItem(SYNC_KEY,syncUrl); }catch(e){}
     syncConnected=true; $("syncConnect").textContent="Disconnect"; $("syncUrl").disabled=true;
     syncSetStatus("connecting\u2026","");
+    syncBase={}; // seeding: diff against an empty base so our first push tags everything
     let txt=""; try{ const r=await fetch(syncUrl,{method:"GET"}); txt=await r.text(); }
     catch(e){ syncSetStatus("could not reach the sync link","warn"); }
     let env=null; try{ env=txt?JSON.parse(txt):null; }catch(e){ env=null; }
@@ -1630,9 +1682,9 @@
     else if(t.dataset.dtab!=null){ state.activeDay=+t.dataset.dtab; renderDtabs(); renderSchedule(); save(); }
     else if(t.dataset.ptab!=null){ state.activePlatoon=(t.dataset.ptab==="all")?-1:(+t.dataset.ptab); renderPtabs(); renderSchedule(); save(); }
   });
-  $("siAdd").addEventListener("click",()=>{ state.sensitive.push({name:"",qty:0,oh:0}); renderSensitive(); save(); });
-  $("gsaAdd").addEventListener("click",()=>{ state.gsas.push({name:"",holder:"",loc:""}); renderGsa(); renderTiles(); save(); });
-  $("hcAdd").addEventListener("click",()=>{ state.heatCas.push({time:hhmmLocal(),name:"",type:"Heat exhaustion",action:""}); renderHeatCas(); save(); });
+  $("siAdd").addEventListener("click",()=>{ state.sensitive.push({id:newId(),name:"",qty:0,oh:0}); renderSensitive(); save(); });
+  $("gsaAdd").addEventListener("click",()=>{ state.gsas.push({id:newId(),name:"",holder:"",loc:""}); renderGsa(); renderTiles(); save(); });
+  $("hcAdd").addEventListener("click",()=>{ state.heatCas.push({id:newId(),time:hhmmLocal(),name:"",type:"Heat exhaustion",action:""}); renderHeatCas(); save(); });
   $("wrStart").addEventListener("click",wrStart);
   $("wrStop").addEventListener("click",wrStop);
   $("wrSkip").addEventListener("click",()=>{ if(wr.running){ wrAdvance(); renderWR(); } });
@@ -1641,7 +1693,7 @@
   $("siAllPresent").addEventListener("click",()=>{ (state.sensitive||[]).forEach(it=>{ it.oh=(+it.qty||0); }); state.siCheck=nowDTG(); renderSensitive(); save(); });
   $("addInc").addEventListener("click",()=>{
     const d=new Date();
-    state.incidents.push({time:pad(d.getUTCDate())+pad(d.getUTCHours())+pad(d.getUTCMinutes())+"Z",type:"",remarks:"",status:"Open"});
+    state.incidents.push({id:newId(),time:pad(d.getUTCDate())+pad(d.getUTCHours())+pad(d.getUTCMinutes())+"Z",type:"",remarks:"",status:"Open"});
     renderInc(); renderTiles(); save();
   });
 
@@ -1697,7 +1749,7 @@
       const par=get(row,iPar); if(par) bits.push("Parent notified: "+par);
       const by=get(row,iBy); if(by) bits.push("by "+by);
       const tstamp=(get(row,iDate)+" "+get(row,iTime)).trim()||get(row,iTS);
-      state.incidents.push({ time:tstamp, type:typeParts.join(" · ")||"Incident", remarks:bits.join(" — "), status:"Open", src:"form" });
+      state.incidents.push({ id:"imp:"+key, time:tstamp, type:typeParts.join(" · ")||"Incident", remarks:bits.join(" — "), status:"Open", src:"form" });
       added++;
     }
     state.importedKeys=Array.from(imported);
@@ -1737,11 +1789,11 @@
   try{ rosterSortMode=localStorage.getItem(ROSTER_SORT_KEY)||"added"; }catch(e){}
   $("rosterSort").addEventListener("change",e=>{ rosterSortMode=e.target.value; try{ localStorage.setItem(ROSTER_SORT_KEY,rosterSortMode); }catch(e){} renderRoster(); });
 
-  $("addRoster").addEventListener("click",()=>{ state.roster.push({name:"",group:"",role:"Camper",status:"Out",last:""}); renderRoster(); renderTiles(); save(); });
+  $("addRoster").addEventListener("click",()=>{ state.roster.push({id:newId(),name:"",group:"",role:"Camper",status:"Out",last:""}); renderRoster(); renderTiles(); save(); });
   $("rosterAdd").addEventListener("keydown",e=>{
     if(e.key!=="Enter") return;
     const nm=e.target.value.trim(); if(!nm) return;
-    state.roster.push({name:nm,group:"",role:"Camper",status:"In",last:nowDTG()});
+    state.roster.push({id:newId(),name:nm,group:"",role:"Camper",status:"In",last:nowDTG()});
     e.target.value=""; renderRoster(); renderTiles(); save();
   });
   $("rInAll").addEventListener("click",()=>{ const d=nowDTG(); state.roster.forEach(r=>{ if(r.status!=="Absent"){ r.status="In"; r.last=d; } }); renderRoster(); renderTiles(); save(); });
