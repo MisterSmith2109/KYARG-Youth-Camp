@@ -534,7 +534,7 @@
   <div class="panel">
     <div class="panel-head"><h2>PERSTAT</h2><span class="hint">assigned &rarr; present</span></div>
     <div class="panel-body">
-      <div class="panel-sub">Auto-summarized from the <b>Roster</b>. <b>Assigned</b> = people on the roster in that group; <b>Present</b> = how many are signed <b>In</b>; Gap = the rest (out or absent).</div>
+      <div class="panel-sub"><b>Type your counts in</b> here, or let it fill from the Roster: any group that has people on the sign-in roster is counted from it automatically; groups with no one on the roster stay editable so you can just enter the numbers. Gap = Assigned &minus; Present.</div>
       <table>
         <thead><tr><th>Group</th><th>Assigned</th><th>Present</th><th>Gap</th></tr></thead>
         <tbody id="perBody"></tbody>
@@ -797,9 +797,9 @@
     volLabel:"Volunteers", vol:0,
     gsaLabel:"GSAs",
     perstat:[
-      {label:"Cadre / Staff", asg:0, pres:0},
-      {label:"Youth / Campers", asg:0, pres:0},
-      {label:"Support", asg:0, pres:0}
+      {label:"Campers", asg:0, pres:0},
+      {label:"Staff / Support", asg:0, pres:0},
+      {label:"Volunteers (PSG/APSG)", asg:0, pres:0}
     ],
     incidents:[],
     feedUrl:"", feedAuto:false, importedKeys:[],
@@ -815,6 +815,25 @@
  
   let state=defaults();
 
+  // Normalize manual PERSTAT counts into the current three groups, folding in older label
+  // names (e.g. "Youth / Campers", "Support / Admin", "PSG / APSG") so typed-in numbers survive.
+  function normalizePerstat(old){
+    const groups=[
+      {label:"Campers", kw:["camper","youth"]},
+      {label:"Staff / Support", kw:["staff","support","admin","cadre"]},
+      {label:"Volunteers (PSG/APSG)", kw:["psg","apsg","volunteer"]}
+    ];
+    const out=groups.map(g=>({label:g.label, asg:0, pres:0}));
+    (Array.isArray(old)?old:[]).forEach(e=>{
+      if(!e||typeof e!=="object") return;
+      const lab=String(e.label||"").toLowerCase();
+      let gi=groups.findIndex(g=>g.kw.some(k=>lab.indexOf(k)>-1));
+      if(gi<0) gi=groups.findIndex(g=>g.label.toLowerCase()===lab);
+      if(gi>=0){ out[gi].asg+=(+e.asg||0); out[gi].pres+=(+e.pres||0); }
+    });
+    return out;
+  }
+
   // Merge saved/loaded data over defaults and upgrade older formats to the day×platoon model.
   function migrateState(loaded){
     const st=Object.assign(defaults(), loaded||{});
@@ -822,6 +841,7 @@
     if(!Array.isArray(st.gsas)) st.gsas=[];
     if(!Array.isArray(st.heatCas)) st.heatCas=[];
     if(!Array.isArray(st.priorHeat)) st.priorHeat=[];
+    st.perstat=normalizePerstat(st.perstat); // keep manual PERSTAT counts, mapped to the current groups
     // safe-merge sync bookkeeping: give list records stable ids; keep the merge maps
     if(!st._m||typeof st._m!=="object") st._m={};
     if(!st._tomb||typeof st._tomb!=="object") st._tomb={};
@@ -1250,12 +1270,19 @@
     {label:"Staff / Support",      roles:["Staff","Support","Cadre"]},
     {label:"Volunteers (PSG/APSG)",roles:["PSG","APSG","Volunteer"]}
   ];
+  function perManualCounts(label){ const e=(state.perstat||[]).find(x=>x&&x.label===label); return e?{asg:+e.asg||0,pres:+e.pres||0}:{asg:0,pres:0}; }
+  // A group is driven by the ROSTER when anyone in it is on the roster; otherwise it falls
+  // back to the manually typed-in counts (so the old numbers-only workflow still works).
   function perstatGroupCounts(g){
     const roster=state.roster||[];
     const inGroup=r=>g.roles.indexOf(r.role)>-1;
-    const asg=roster.filter(inGroup).length;
-    const pres=roster.filter(r=>inGroup(r) && r.status==="In").length;
-    return {asg:asg, pres:pres, gap:asg-pres};
+    if(roster.some(inGroup)){
+      const asg=roster.filter(inGroup).length;
+      const pres=roster.filter(r=>inGroup(r) && r.status==="In").length;
+      return {asg:asg, pres:pres, gap:asg-pres, src:"roster"};
+    }
+    const m=perManualCounts(g.label);
+    return {asg:m.asg, pres:m.pres, gap:m.asg-m.pres, src:"manual"};
   }
   function perstatTotals(){
     let asg=0,pres=0;
@@ -1266,11 +1293,20 @@
     const b=$("perBody"); b.innerHTML="";
     PERSTAT_GROUPS.forEach(g=>{
       const c=perstatGroupCounts(g);
+      const pi=(state.perstat||[]).findIndex(x=>x&&x.label===g.label);
       const tr=document.createElement("tr");
-      tr.innerHTML='<td class="row-label">'+esc(g.label)+'</td>'+
-        '<td class="calc">'+c.asg+'</td>'+
-        '<td class="calc">'+c.pres+'</td>'+
-        '<td class="calc">'+c.gap+'</td>';
+      if(c.src==="manual" && pi>=0){
+        // roster empty for this group → let the numbers be typed in
+        tr.innerHTML='<td class="row-label">'+esc(g.label)+'</td>'+
+          '<td class="num"><input type="number" min="0" data-perm="'+pi+'" data-f="asg" value="'+c.asg+'"></td>'+
+          '<td class="num"><input type="number" min="0" data-perm="'+pi+'" data-f="pres" value="'+c.pres+'"></td>'+
+          '<td class="calc">'+c.gap+'</td>';
+      }else{
+        tr.innerHTML='<td class="row-label">'+esc(g.label)+'</td>'+
+          '<td class="calc">'+c.asg+'</td>'+
+          '<td class="calc">'+c.pres+'</td>'+
+          '<td class="calc">'+c.gap+'</td>';
+      }
       b.appendChild(tr);
     });
     const t=perstatTotals();
@@ -1718,6 +1754,10 @@
     else if(t.dataset.gsa!=null){ const g=state.gsas[+t.dataset.gsa]; g[t.dataset.f]=t.value; if(t.dataset.f==="holder"){ renderTiles(); const c=$("gsaChip"); if(c){ const l=state.gsas; c.textContent=l.filter(x=>String(x.holder||"").trim()).length+" out · "+l.length+" total"; } } save(); }
     else if(t.dataset.hc!=null){ const c=state.heatCas[+t.dataset.hc]; if(c){ c[t.dataset.f]=t.value; save(); } }
     else if(t.dataset.ph!=null){ const c=state.priorHeat[+t.dataset.ph]; if(c){ c[t.dataset.f]=t.value; save(); } }
+    else if(t.dataset.perm!=null){ const e=state.perstat[+t.dataset.perm]; if(e){ e[t.dataset.f]=Math.max(0,+t.value||0);
+        const tr=t.closest("tr"); if(tr){ const gap=tr.querySelector(".calc"); if(gap) gap.textContent=(+e.asg||0)-(+e.pres||0); }
+        const tot=perstatTotals(); $("perAsg").textContent=tot.asg; $("perPres").textContent=tot.pres; $("perGap").textContent=tot.gap;
+        renderTiles(); save(); } }
   });
   document.body.addEventListener("change",e=>{
     const t=e.target;
