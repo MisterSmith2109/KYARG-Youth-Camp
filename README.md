@@ -14,7 +14,10 @@ it works, online or offline.
 - **Header & DTG clock** — camp name, Zulu + local time, Camp Day, Battle
   Captain/OIC, TOC NCO, Weather/FPCON.
 - **Live weather** from the National Weather Service (set your camp coordinates,
-  or press *Locate*). Needs internet; everything else works offline.
+  or press *Locate*), with a **48-hour forecast chart** *(new)* — an hourly
+  temperature curve with day/night shading, a "now" marker, high/low labels, and
+  precipitation chance along the bottom (hover for the exact hour). Needs
+  internet; everything else works offline.
 - **Glance tiles** — On Ground (present), Incident Reports, GSAs (with a
   *signed out* count), and **Accountability %**.
 - **GSAs** *(new)* — track government vehicles/equipment. List each GSA and
@@ -51,7 +54,12 @@ it works, online or offline.
 - **Heat Casualties** *(new)* — a quick log for heat cases as they happen (time,
   name, type — cramps / exhaustion / **heat stroke** / precaution — and action
   taken), with a prominent heat-stroke emergency reminder. Heat-stroke entries
-  are highlighted, counted on the panel, and included in the SITREP.
+  are highlighted, counted on the panel, and included in the SITREP. Sits with
+  the Incident Report Log near the bottom of the board.
+- **Prior Heat Casualty · Watch List** *(new)* — an editable list of campers/staff
+  with a **known prior history of heat illness** (name, group, notes), so staff
+  can watch them proactively and pull them early in high-heat categories. Syncs
+  and appears in the SITREP.
 - **Daily Schedule** *(new)* — a full **week × platoon** schedule. Pick a **day**
   (Saturday–Friday), then a **platoon** (Alpha–Hotel), to see that platoon's
   activities for that day. The 2026 camp week is pre-loaded from the schedule
