@@ -284,6 +284,16 @@
     font-size:12px;letter-spacing:.04em;padding:5px 8px;border-radius:5px;border:1px solid var(--line-soft)}
   .btn2-armed{border-color:var(--red)!important;color:var(--red)!important}
   tr.now-row td{background:rgba(168,184,106,.12)}
+  /* All-platoons overview matrix */
+  .sched-matrix{width:100%;border-collapse:collapse;font-size:12px}
+  .sched-matrix th{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--olive-bright);
+    text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+  .sched-matrix td{padding:5px 8px;border-bottom:1px solid var(--line-soft);vertical-align:top;min-width:112px;line-height:1.35}
+  .sched-matrix .mx-time{font-family:var(--mono);color:var(--muted);white-space:nowrap;min-width:96px}
+  .sched-matrix .mx-canceled{color:var(--muted);text-decoration:line-through}
+  .sched-matrix .done-row td{opacity:.5}
+  .sched-matrix .now-row .mx-time{color:var(--olive-bright);font-weight:700}
+  .ptab-all.active{background:var(--olive-bright);border-color:var(--olive-bright)}
   .sch-Now{color:#0f1a0e;background:var(--olive-bright);border-color:var(--olive-bright)}
   .sch-Done{color:var(--muted);background:var(--panel-2);border-color:var(--line-soft)}
   .sch-Upcoming{color:var(--ink);background:var(--panel-2);border-color:var(--line-soft)}
@@ -496,23 +506,24 @@
       <span class="hint" id="schToday"></span>
     </div>
     <div class="panel-body">
-      <div class="panel-sub">Pick a <b>day</b>, then a <b>platoon</b>, to see that platoon&rsquo;s schedule. Status advances automatically with the clock &mdash; events turn <b>Now</b>, then <b>Done</b>, as their time passes. Rename platoons as needed.</div>
+      <div class="panel-sub">Pick a <b>day</b>, then a <b>platoon</b> to view/edit its schedule &mdash; or <b>All</b> for a read-only overview of every platoon side by side. Status advances automatically with the clock (the current row is highlighted). Rename platoons as needed.</div>
       <div class="picker-label">Day</div>
       <div class="dtab-row" id="dtabRow"></div>
       <div class="picker-label">Platoon</div>
       <div class="ptab-row" id="ptabRow"></div>
-      <div class="ptab-tools">
+      <div class="ptab-tools" id="ptTools">
         <span class="fld-k">Platoon name</span>
         <input id="ptName" class="pt-name-input" placeholder="Platoon name" aria-label="Platoon name">
         <button class="btn2" id="ptAdd">+ Platoon</button>
         <button class="btn2" id="ptDel">Remove platoon</button>
       </div>
-      <div class="tbl-scroll">
+      <div class="tbl-scroll" id="schTableWrap">
         <table>
           <thead><tr><th>Time</th><th>Activity</th><th>Location</th><th>Status</th><th></th></tr></thead>
           <tbody id="schBody"></tbody>
         </table>
       </div>
+      <div class="tbl-scroll" id="schMatrixWrap" style="display:none"></div>
       <button class="add-btn" id="addSch">+ Add activity</button>
     </div>
   </div>
@@ -1046,11 +1057,13 @@
     if(i<0||i>=CAMP_DAYS.length){ i=0; state.activeDay=0; }
     return CAMP_DAYS[i];
   }
+  function isAllView(){ return state.activePlatoon===-1; }
   function curPlatoon(){
     const p=state.platoons||[];
     if(!p.length) return null;
-    let i=state.activePlatoon||0;
-    if(i<0||i>=p.length){ i=0; state.activePlatoon=0; }
+    let i=state.activePlatoon;
+    if(typeof i!=="number"||i>=p.length){ i=0; state.activePlatoon=0; }
+    if(i<0) i=0; // "All" (-1) maps to the first platoon for non-view uses, without resetting the selection
     if(!p[i].sched) p[i].sched=emptyWeek();
     return p[i];
   }
@@ -1074,6 +1087,11 @@
   function renderPtabs(){
     const row=$("ptabRow"); if(!row) return;
     row.innerHTML="";
+    const allBtn=document.createElement("button");
+    allBtn.className="ptab ptab-all"+(isAllView()?" active":"");
+    allBtn.textContent="All";
+    allBtn.dataset.ptab="all";
+    row.appendChild(allBtn);
     (state.platoons||[]).forEach((pl,i)=>{
       const btn=document.createElement("button");
       btn.className="ptab"+(i===state.activePlatoon?" active":"");
@@ -1083,8 +1101,15 @@
     });
     const pn=$("ptName"); const cp=curPlatoon();
     if(pn) pn.value=cp?(cp.name||""):"";
+    const tools=$("ptTools"); if(tools) tools.style.display=isAllView()?"none":"";
   }
   function renderSchedule(){
+    // Toggle between the single-platoon editor and the all-platoons overview.
+    const all=isAllView();
+    if($("schTableWrap")) $("schTableWrap").style.display=all?"none":"";
+    if($("schMatrixWrap")) $("schMatrixWrap").style.display=all?"":"none";
+    if($("addSch")) $("addSch").style.display=all?"none":"";
+    if(all){ renderScheduleAll(); const el=$("schToday"); if(el){ const c=campNow(); el.textContent=MON[c.mon-1]+" "+pad(c.day); } return; }
     const b=$("schBody"); b.innerHTML="";
     const list=curSched()||[];
     if(list.length===0){
@@ -1108,8 +1133,45 @@
     }
     const el=$("schToday"); if(el){ const c=campNow(); el.textContent=MON[c.mon-1]+" "+pad(c.day); }
   }
+  // All-platoons overview: a read-only time × platoon matrix for the selected day.
+  function renderScheduleAll(){
+    const wrap=$("schMatrixWrap"); if(!wrap) return;
+    const plns=state.platoons||[];
+    const day=curDayLabel();
+    // union of time slots across platoons, plus a per-platoon time→row map
+    const order=[]; const seen={}; const maps=[];
+    plns.forEach(pl=>{
+      const list=(pl.sched&&pl.sched[day])||[];
+      const m={};
+      list.forEach(r=>{ const t=String(r.time||"").trim(); if(!t) return; if(!(t in m)) m[t]=r; if(!(t in seen)){ seen[t]=1; order.push(t); } });
+      maps.push(m);
+    });
+    order.sort((a,b)=>{ const pa=parseTimeRange(a), pb=parseTimeRange(b); const sa=pa?pa.start:99999, sb=pb?pb.start:99999; return sa-sb || (a<b?-1:a>b?1:0); });
+    if(order.length===0){ wrap.innerHTML='<div class="inc-empty">No activities for this day. Pick a platoon to build its schedule.</div>'; return; }
+    let html='<table class="sched-matrix"><thead><tr><th>Time</th>';
+    plns.forEach(pl=>{ html+='<th>'+esc(pl.name||"Plt")+'</th>'; });
+    html+='</tr></thead><tbody>';
+    order.forEach(t=>{
+      const st=schStatus({time:t});
+      const cls=st==="Now"?"now-row":(st==="Done"?"done-row":"");
+      html+='<tr class="'+cls+'"><td class="mx-time">'+esc(t)+'</td>';
+      maps.forEach(m=>{
+        const r=m[t];
+        if(!r||!String(r.activity||"").trim()){ html+='<td></td>'; }
+        else{
+          const cc=r.canceled?" mx-canceled":"";
+          const loc=String(r.loc||"").trim();
+          html+='<td class="mx-cell'+cc+'" title="'+esc((r.activity||"")+(loc?" @ "+loc:""))+'">'+esc(r.activity)+'</td>';
+        }
+      });
+      html+='</tr>';
+    });
+    html+='</tbody></table>';
+    wrap.innerHTML=html;
+  }
   // Re-evaluate status pills in place (no rebuild) so the clock advances them without stealing input focus.
   function refreshSchedStatuses(){
+    if(isAllView()){ renderScheduleAll(); return; } // matrix is read-only; safe to rebuild
     const list=curSched(); if(!list) return;
     const rows=$("schBody").querySelectorAll("tr");
     rows.forEach(tr=>{
@@ -1155,7 +1217,7 @@
     else if(t.dataset.cancelsch!=null){ const s=curSched(); if(s&&s[+t.dataset.cancelsch]){ const r=s[+t.dataset.cancelsch]; r.canceled=!r.canceled; } renderSchedule(); save(); }
     else if(t.dataset.signros!=null){ const r=state.roster[+t.dataset.signros]; r.status=(r.status==="In")?"Out":"In"; r.last=nowDTG(); renderRoster(); renderTiles(); save(); }
     else if(t.dataset.dtab!=null){ state.activeDay=+t.dataset.dtab; renderDtabs(); renderSchedule(); save(); }
-    else if(t.dataset.ptab!=null){ state.activePlatoon=+t.dataset.ptab; renderPtabs(); renderSchedule(); save(); }
+    else if(t.dataset.ptab!=null){ state.activePlatoon=(t.dataset.ptab==="all")?-1:(+t.dataset.ptab); renderPtabs(); renderSchedule(); save(); }
   });
   $("addPer").addEventListener("click",()=>{ state.perstat.push({label:"New element",asg:0,pres:0}); renderPer(); renderTiles(); save(); });
   $("siAdd").addEventListener("click",()=>{ state.sensitive.push({name:"",qty:0,oh:0}); renderSensitive(); save(); });
