@@ -35,8 +35,10 @@ it works, online or offline.
   absent/excused people are shown separately. A **head-count check** lets you
   enter the number of heads counted on the ground and reconciles it against who's
   signed In (flagging "+2 more on ground" or "2 short").
-- **PERSTAT** — personnel counts by element (assigned vs. present). Used for
-  Accountability only when the roster is empty, so the old workflow still works.
+- **PERSTAT** — personnel counts by group (assigned vs. present). Works two ways:
+  **type the counts in** directly, or let it fill from the roster. Any group that
+  has people on the sign-in roster is counted from it automatically; groups with
+  no one on the roster stay editable so the numbers-only workflow still works.
 - **Heat Condition · WBGT** *(new)* — a Category 1–5 heat flag driven by a Wet
   Bulb Globe Temperature reading, with activity and hydration guidance for each
   level. **Auto** builds a real full-sun **outdoor** WBGT from the live weather —
