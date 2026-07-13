@@ -418,7 +418,8 @@
     </div>
     <div class="tile" id="tileGsa">
       <input class="t-label" id="lblGsa" value="GSAs" aria-label="Tile 3 label">
-      <input class="t-val" id="valGsa" type="number" min="0" value="0" inputmode="numeric">
+      <div class="t-val" id="valGsa">0</div>
+      <div class="t-sub" id="gsaSub">0 signed out</div>
     </div>
     <div class="tile good" id="tileAcc">
       <span class="t-label">Accountability</span>
@@ -448,6 +449,24 @@
         </table>
       </div>
       <button class="add-btn" id="siAdd">+ Add item</button>
+    </div>
+  </div>
+
+  <!-- GSAs -->
+  <div class="panel" id="gsaPanel">
+    <div class="panel-head">
+      <h2>GSAs</h2>
+      <div class="head-right"><span class="si-chip" id="gsaChip"></span></div>
+    </div>
+    <div class="panel-body">
+      <div class="panel-sub">Government vehicles / equipment. Enter each GSA and <b>who has it</b>. If it&rsquo;s not signed out to anyone, note <b>where it is</b> instead.</div>
+      <div class="tbl-scroll">
+        <table>
+          <thead><tr><th>GSA</th><th>Assigned To</th><th>Location</th><th></th></tr></thead>
+          <tbody id="gsaBody"></tbody>
+        </table>
+      </div>
+      <button class="add-btn" id="gsaAdd">+ Add GSA</button>
     </div>
   </div>
 
@@ -642,7 +661,7 @@
     wxCoords:"37.3849, -86.2335",
     wbgt:null, wbgtAuto:true,
     volLabel:"Volunteers", vol:0,
-    gsaLabel:"GSAs", gsa:0,
+    gsaLabel:"GSAs",
     perstat:[
       {label:"Cadre / Staff", asg:0, pres:0},
       {label:"Youth / Campers", asg:0, pres:0},
@@ -651,6 +670,7 @@
     incidents:[],
     feedUrl:"", feedAuto:false, importedKeys:[],
     sensitive:[{name:"Motorola APX 8000XE", qty:0, oh:0}], siCheck:"",
+    gsas:[],
     roster:[],
     activeDay:0,
     activePlatoon:-1,
@@ -663,6 +683,7 @@
   function migrateState(loaded){
     const st=Object.assign(defaults(), loaded||{});
     if(!Array.isArray(st.sensitive)) st.sensitive=defaults().sensitive;
+    if(!Array.isArray(st.gsas)) st.gsas=[];
     if(!Array.isArray(st.platoons)||!st.platoons.length) st.platoons=defaults().platoons;
     st.platoons.forEach((pl,i)=>{
       if(!pl||typeof pl!=="object"){ st.platoons[i]={name:CAMP_PLATOONS[i]||("Platoon "+(i+1)), sched:emptyWeek()}; return; }
@@ -878,7 +899,10 @@
     const pt=perstatTotals();
     if($("valOG")) $("valOG").textContent=pt.pres;
     if($("ogSub")) $("ogSub").textContent=pt.pres+" / "+pt.asg+" present";
-    $("valGsa").value=state.gsa;
+    const gsaList=state.gsas||[];
+    const gsaOut=gsaList.filter(g=>String(g.holder||"").trim()).length;
+    if($("valGsa")) $("valGsa").textContent=gsaList.length;
+    if($("gsaSub")) $("gsaSub").textContent=gsaOut+" signed out";
     $("lblGsa").value=state.gsaLabel;
 
     const openInc=state.incidents.filter(i=>i.status!=="Closed").length;
@@ -992,6 +1016,27 @@
       if(pill){ pill.textContent=s.t; pill.className="si-status si-"+s.k; }
     });
     renderSiSummary();
+  }
+
+  // ---------- render GSAs ----------
+  function renderGsa(){
+    const b=$("gsaBody"); if(!b) return; b.innerHTML="";
+    const list=state.gsas||[];
+    if(list.length===0){
+      b.innerHTML='<tr><td colspan="4" class="inc-empty">No GSAs yet. Use &ldquo;+ Add GSA&rdquo;.</td></tr>';
+    }else{
+      list.forEach((g,i)=>{
+        const tr=document.createElement("tr");
+        tr.innerHTML=
+          '<td><input class="row-label" data-gsa="'+i+'" data-f="name" value="'+esc(g.name)+'" placeholder="GSA # / name"></td>'+
+          '<td><input data-gsa="'+i+'" data-f="holder" value="'+esc(g.holder)+'" placeholder="who has it"></td>'+
+          '<td><input data-gsa="'+i+'" data-f="loc" value="'+esc(g.loc)+'" placeholder="location if not assigned"></td>'+
+          '<td><button class="icon-btn" data-delgsa="'+i+'" title="Remove">×</button></td>';
+        b.appendChild(tr);
+      });
+    }
+    const total=list.length, out=list.filter(g=>String(g.holder||"").trim()).length;
+    const chip=$("gsaChip"); if(chip) chip.textContent = total ? (out+" out · "+total+" total") : "no GSAs";
   }
 
   // ---------- render incidents ----------
@@ -1219,13 +1264,13 @@
     });
   }
 
-  function renderAll(){ renderTiles(); renderPer(); renderSensitive(); renderInc(); renderRoster(); renderDtabs(); renderPtabs(); renderSchedule(); renderHeat(); }
+  function renderAll(){ renderTiles(); renderPer(); renderSensitive(); renderGsa(); renderInc(); renderRoster(); renderDtabs(); renderPtabs(); renderSchedule(); renderHeat(); }
  
   // ---------- events ----------
   // header + tile fields
   const bind=(id,key,num)=>{ $(id).addEventListener("input",e=>{ state[key]=num?(+e.target.value||0):e.target.value; if(num||key.indexOf("Label")>-1) renderTiles(); save(); }); };
   bind("campName","campName"); bind("mDay","day"); bind("mOic","oic"); bind("mNco","nco"); bind("mWx","wx");
-  bind("valGsa","gsa",true); bind("lblGsa","gsaLabel");
+  bind("lblGsa","gsaLabel");
  
   // delegated table edits
   document.body.addEventListener("input",e=>{
@@ -1234,6 +1279,7 @@
     else if(t.dataset.ros!=null){ state.roster[+t.dataset.ros][t.dataset.f]=t.value; save(); }
     else if(t.dataset.sch!=null){ const s=curSched(); if(s&&s[+t.dataset.sch]) s[+t.dataset.sch][t.dataset.f]=t.value; if(t.dataset.f==="time") refreshSchedStatuses(); save(); }
     else if(t.dataset.si!=null){ const it=state.sensitive[+t.dataset.si]; const f=t.dataset.f; it[f]=(f==="name")?t.value:(+t.value||0); if(f!=="name") refreshSi(); save(); }
+    else if(t.dataset.gsa!=null){ const g=state.gsas[+t.dataset.gsa]; g[t.dataset.f]=t.value; if(t.dataset.f==="holder"){ renderTiles(); const c=$("gsaChip"); if(c){ const l=state.gsas; c.textContent=l.filter(x=>String(x.holder||"").trim()).length+" out · "+l.length+" total"; } } save(); }
   });
   document.body.addEventListener("change",e=>{
     const t=e.target;
@@ -1244,6 +1290,7 @@
     const t=e.target;
     if(t.dataset.delinc!=null){ state.incidents.splice(+t.dataset.delinc,1); renderInc(); renderTiles(); save(); }
     else if(t.dataset.delsi!=null){ state.sensitive.splice(+t.dataset.delsi,1); renderSensitive(); save(); }
+    else if(t.dataset.delgsa!=null){ state.gsas.splice(+t.dataset.delgsa,1); renderGsa(); renderTiles(); save(); }
     else if(t.dataset.delros!=null){ state.roster.splice(+t.dataset.delros,1); renderRoster(); renderTiles(); save(); }
     else if(t.dataset.delsch!=null){ const s=curSched(); if(s) s.splice(+t.dataset.delsch,1); renderSchedule(); save(); }
     else if(t.dataset.cancelsch!=null){ const s=curSched(); if(s&&s[+t.dataset.cancelsch]){ const r=s[+t.dataset.cancelsch]; r.canceled=!r.canceled; } renderSchedule(); save(); }
@@ -1252,6 +1299,7 @@
     else if(t.dataset.ptab!=null){ state.activePlatoon=(t.dataset.ptab==="all")?-1:(+t.dataset.ptab); renderPtabs(); renderSchedule(); save(); }
   });
   $("siAdd").addEventListener("click",()=>{ state.sensitive.push({name:"",qty:0,oh:0}); renderSensitive(); save(); });
+  $("gsaAdd").addEventListener("click",()=>{ state.gsas.push({name:"",holder:"",loc:""}); renderGsa(); renderTiles(); save(); });
   $("siAllPresent").addEventListener("click",()=>{ (state.sensitive||[]).forEach(it=>{ it.oh=(+it.qty||0); }); state.siCheck=nowDTG(); renderSensitive(); save(); });
   $("addInc").addEventListener("click",()=>{
     const d=new Date();
@@ -1420,7 +1468,10 @@
     L.push("");
     { const pt=perstatTotals(); L.push("ON GROUND: "+pt.pres+" / "+pt.asg); }
     L.push("INCIDENT REPORTS: "+state.incidents.length+" ("+state.incidents.filter(i=>i.status!=="Closed").length+" open)");
-    L.push(state.gsaLabel.toUpperCase()+": "+state.gsa);
+    { const gl=state.gsas||[]; const out=gl.filter(g=>String(g.holder||"").trim()).length;
+      L.push(state.gsaLabel.toUpperCase()+": "+gl.length+(gl.length?" ("+out+" signed out)":""));
+      gl.forEach(g=>{ const nm=String(g.name||"").trim()||"(unnamed)"; const who=String(g.holder||"").trim(); const loc=String(g.loc||"").trim();
+        L.push("  "+nm+" — "+(who?who:(loc?"at "+loc:"unassigned"))); }); }
     const siWith=(state.sensitive||[]).filter(it=>(+it.qty||0)>0);
     if(siWith.length){
       const siOK=siWith.every(it=>(+it.oh||0)===(+it.qty||0));

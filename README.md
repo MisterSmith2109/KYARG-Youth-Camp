@@ -15,7 +15,12 @@ it works, online or offline.
   Captain/OIC, TOC NCO, Weather/FPCON.
 - **Live weather** from the National Weather Service (set your camp coordinates,
   or press *Locate*). Needs internet; everything else works offline.
-- **Glance tiles** — Volunteers, Incident Reports, GSAs, and **Accountability %**.
+- **Glance tiles** — On Ground (present), Incident Reports, GSAs (with a
+  *signed out* count), and **Accountability %**.
+- **GSAs** *(new)* — track government vehicles/equipment. List each GSA and
+  **who has it**; if it isn't signed out to anyone, note **where it is** instead.
+  The GSA tile shows the total and how many are signed out, and the roster
+  flows into the SITREP.
 - **Roster · Sign-In** *(new)* — list campers and staff by name and sign them
   **In / Out / Absent**. Type a name and press Enter to add-and-sign-in, or use
   *Sign all in* / *Sign all out*. When anyone is on the roster it drives the
