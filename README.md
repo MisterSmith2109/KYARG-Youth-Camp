@@ -36,6 +36,15 @@ it works, online or offline.
   if solar data can't be reached it falls back to a clearly-labeled shade
   estimate. Turn Auto off to key in a heat-stress meter reading (still the gold
   standard). Guidance is a guideline — always follow your camp medical SOP.
+- **Work/Rest + Hydration timer** *(new)* — a countdown that loops active-play
+  and rest periods sized to the **current heat category** (e.g. 30 min active /
+  30 min rest at Category 3), with the hourly water guideline shown. It chimes
+  and flashes at each switch, survives a page refresh (for a wall display), and
+  stops itself if the category rises to a suspend-activity level.
+- **Heat Casualties** *(new)* — a quick log for heat cases as they happen (time,
+  name, type — cramps / exhaustion / **heat stroke** / precaution — and action
+  taken), with a prominent heat-stroke emergency reminder. Heat-stroke entries
+  are highlighted, counted on the panel, and included in the SITREP.
 - **Daily Schedule** *(new)* — a full **week × platoon** schedule. Pick a **day**
   (Saturday–Friday), then a **platoon** (Alpha–Hotel), to see that platoon's
   activities for that day. The 2026 camp week is pre-loaded from the schedule

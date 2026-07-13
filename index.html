@@ -332,6 +332,26 @@
   .hg-v{font-size:14px;line-height:1.4}
   .heat-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px}
   .heat-controls input{width:120px;font-family:var(--mono)}
+  /* Work / rest cycle timer */
+  .wr-box{margin-top:14px;border:1px solid var(--line);border-radius:8px;padding:12px;background:var(--panel-2)}
+  .wr-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px}
+  .wr-title{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+  .wr-rec{font-size:13px;font-weight:600;text-align:right}
+  .wr-timer{display:flex;align-items:center;gap:14px;margin:8px 0 12px}
+  .wr-phase{font-family:var(--mono);font-weight:800;font-size:15px;letter-spacing:.08em;padding:5px 12px;border-radius:5px;background:var(--panel);border:1px solid var(--line);white-space:nowrap}
+  .wr-phase.work{background:var(--amber);color:#241a05;border-color:var(--amber)}
+  .wr-phase.rest{background:var(--green);color:#0f1a0e;border-color:var(--green)}
+  .wr-phase.flash{animation:wrflash .5s ease-in-out 4}
+  @keyframes wrflash{50%{filter:brightness(1.9)}}
+  @media (prefers-reduced-motion: reduce){.wr-phase.flash{animation:none}}
+  .wr-clock{font-family:var(--mono);font-weight:800;font-size:34px;line-height:1;font-variant-numeric:tabular-nums}
+  .wr-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .wr-note{margin-top:8px;font-size:12px;color:var(--muted);line-height:1.4}
+  /* Heat-casualty log */
+  .hc-emg{border:1px solid var(--red);background:rgba(196,60,45,.12);border-radius:6px;padding:8px 10px;margin-bottom:10px;font-size:12px;line-height:1.45}
+  .hc-emg b{color:var(--red)}
+  select.hc-type{font-family:inherit;font-size:13px;padding:5px 6px;border-radius:5px;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);width:100%}
+  tr.hc-stroke td{background:rgba(196,60,45,.10)}
   .heat-NA{background:var(--panel-2);color:var(--muted)}
   .heat-LOW{background:var(--panel-2);color:var(--olive-bright);border-color:var(--line)}
   .heat-GREEN{background:var(--green);color:#0f1a0e;border-color:var(--green)}
@@ -514,8 +534,40 @@
         <button class="btn2" id="heatEst">Use weather estimate</button>
         <span class="wx-status" id="heatEstNote"></span>
       </div>
+      <div class="wr-box" id="wrBox">
+        <div class="wr-head">
+          <span class="wr-title">Work / Rest &middot; Hydration</span>
+          <span class="wr-rec" id="wrRec">&mdash;</span>
+        </div>
+        <div class="wr-timer">
+          <span class="wr-phase" id="wrPhase">READY</span>
+          <span class="wr-clock" id="wrClock">--:--</span>
+        </div>
+        <div class="wr-controls">
+          <button class="btn2" id="wrStart">Start cycle</button>
+          <button class="btn2" id="wrSkip">Skip phase</button>
+          <button class="btn2" id="wrStop">Stop</button>
+          <label class="chk"><input type="checkbox" id="wrBeep" checked> Chime</label>
+        </div>
+        <div class="wr-note" id="wrNote"></div>
+      </div>
     </div>
   </div>
+  </div>
+
+  <!-- HEAT CASUALTIES -->
+  <div class="panel" id="hcPanel">
+    <div class="panel-head"><h2>Heat Casualties</h2><div class="head-right"><span class="si-chip" id="hcChip"></span></div></div>
+    <div class="panel-body">
+      <div class="hc-emg"><b>Heat stroke is a medical emergency.</b> Hot skin + confusion, staggering, or collapse &rarr; call <b>911</b>, cool the camper immediately (shade, water, ice to neck/armpits/groin), and notify camp medical. Log every heat case here as it happens.</div>
+      <div class="tbl-scroll">
+        <table>
+          <thead><tr><th>Time</th><th>Name</th><th>Type</th><th>Action / disposition</th><th></th></tr></thead>
+          <tbody id="hcBody"></tbody>
+        </table>
+      </div>
+      <button class="add-btn" id="hcAdd">+ Log heat casualty</button>
+    </div>
   </div>
 
   <!-- DAILY SCHEDULE -->
@@ -671,6 +723,7 @@
     feedUrl:"", feedAuto:false, importedKeys:[],
     sensitive:[{name:"Motorola APX 8000XE", qty:0, oh:0}], siCheck:"",
     gsas:[],
+    heatCas:[],
     roster:[],
     activeDay:0,
     activePlatoon:-1,
@@ -684,6 +737,7 @@
     const st=Object.assign(defaults(), loaded||{});
     if(!Array.isArray(st.sensitive)) st.sensitive=defaults().sensitive;
     if(!Array.isArray(st.gsas)) st.gsas=[];
+    if(!Array.isArray(st.heatCas)) st.heatCas=[];
     if(!Array.isArray(st.platoons)||!st.platoons.length) st.platoons=defaults().platoons;
     st.platoons.forEach((pl,i)=>{
       if(!pl||typeof pl!=="object"){ st.platoons[i]={name:CAMP_PLATOONS[i]||("Platoon "+(i+1)), sched:emptyWeek()}; return; }
@@ -838,14 +892,17 @@
   // U.S. Army heat categories (TB MED 507), WBGT °F:
   // <78 below Cat 1; 78–81.9 Cat 1 (Green); 82–84.9 Cat 2 (Yellow); 85–87.9 Cat 3 (Red);
   // 88–89.9 Cat 4 (Black); ≥90 Cat 5 (Black).
+  // Each category also carries a work/rest cycle (minutes of active play / rest) and an
+  // hourly water guideline, adapted from TB MED 507's hard-work column. Youth are more
+  // heat-vulnerable than acclimatized soldiers — treat these as conservative guidelines.
   const HEATCATS={
-    NA:   {cls:"heat-NA",    name:"— set WBGT —", flag:"",           work:"Enter a WBGT reading (or use the weather estimate) to see the heat category.", water:"—"},
-    BELOW:{cls:"heat-LOW",   name:"BELOW CAT 1",  flag:"Low risk",   work:"Normal activities. Keep water available.",                       water:"Drink on regular breaks."},
-    C1:   {cls:"heat-GREEN", name:"CATEGORY 1",   flag:"Green flag", work:"Use discretion for intense or prolonged exertion.",              water:"Water break about every 45 min."},
-    C2:   {cls:"heat-YELLOW",name:"CATEGORY 2",   flag:"Yellow flag",work:"Limit strenuous activity; rest in shade between bouts.",          water:"Water break about every 30 min."},
-    C3:   {cls:"heat-RED",   name:"CATEGORY 3",   flag:"Red flag",   work:"Curtail strenuous activity; short bouts, mandatory shade rest.",  water:"Water break about every 20–30 min."},
-    C4:   {cls:"heat-BLACK", name:"CATEGORY 4",   flag:"Black flag", work:"Suspend strenuous outdoor activity; move to shade or A/C.",        water:"Continuous hydration; watch for heat illness."},
-    C5:   {cls:"heat-BLACK", name:"CATEGORY 5",   flag:"Black flag", work:"Suspend all outdoor physical activity; move to shade or A/C.",     water:"Continuous hydration; active heat-illness watch."}
+    NA:   {cls:"heat-NA",    name:"— set WBGT —", flag:"",           work:"Enter a WBGT reading (or use the weather estimate) to see the heat category.", water:"—", wr:null, hydr:""},
+    BELOW:{cls:"heat-LOW",   name:"BELOW CAT 1",  flag:"Low risk",   work:"Normal activities. Keep water available.",                       water:"Drink on regular breaks.", wr:null, hydr:"about ½ qt/hr"},
+    C1:   {cls:"heat-GREEN", name:"CATEGORY 1",   flag:"Green flag", work:"Use discretion for intense or prolonged exertion.",              water:"Water break about every 45 min.", wr:{work:40,rest:20}, hydr:"about ¾ qt/hr"},
+    C2:   {cls:"heat-YELLOW",name:"CATEGORY 2",   flag:"Yellow flag",work:"Limit strenuous activity; rest in shade between bouts.",          water:"Water break about every 30 min.", wr:{work:30,rest:30}, hydr:"about ¾ qt/hr"},
+    C3:   {cls:"heat-RED",   name:"CATEGORY 3",   flag:"Red flag",   work:"Curtail strenuous activity; short bouts, mandatory shade rest.",  water:"Water break about every 20–30 min.", wr:{work:30,rest:30}, hydr:"about 1 qt/hr"},
+    C4:   {cls:"heat-BLACK", name:"CATEGORY 4",   flag:"Black flag", work:"Suspend strenuous outdoor activity; move to shade or A/C.",        water:"Continuous hydration; watch for heat illness.", wr:{work:20,rest:40}, hydr:"about 1 qt/hr"},
+    C5:   {cls:"heat-BLACK", name:"CATEGORY 5",   flag:"Black flag", work:"Suspend all outdoor physical activity; move to shade or A/C.",     water:"Continuous hydration; active heat-illness watch.", wr:null, hydr:"about 1 qt/hr"}
   };
   function heatCat(wb){
     if(wb==null||isNaN(wb)) return HEATCATS.NA;
@@ -915,6 +972,7 @@
       if(auto) $("heatEstNote").textContent = est!=null ? ("auto · "+modeTxt+detail+" · "+hhmmLocal()) : "auto · waiting for weather…";
       else $("heatEstNote").textContent = est!=null ? ("estimate ≈ "+est+"° ("+modeTxt+")") : "";
     }
+    renderWR();
   }
   // When Auto is on, keep WBGT in step with the live weather estimate.
   function refreshHeatAuto(){
@@ -923,6 +981,96 @@
       if(est!=null && (state.wbgt==null || +state.wbgt!==est)){ state.wbgt=est; save(); }
     }
     renderHeat();
+  }
+
+  // ---------- work / rest cycle timer (per-device; not synced) ----------
+  // Driven by the current heat category. Times a bout of active play, then a rest, and
+  // loops — chiming and flashing at each switch. Survives a page reload so a wall display
+  // can be refreshed without losing the running cycle.
+  const WR_KEY="kyarng-camp-wrcycle";
+  const wr={running:false, phase:"work", endsAt:0, timer:null};
+  function wrPersist(){ try{ localStorage.setItem(WR_KEY, JSON.stringify({running:wr.running,phase:wr.phase,endsAt:wr.endsAt})); }catch(e){} }
+  function wrRestore(){
+    try{ const o=JSON.parse(localStorage.getItem(WR_KEY)||"null");
+      if(o&&o.running&&o.endsAt>Date.now()){ wr.running=true; wr.phase=(o.phase==="rest")?"rest":"work"; wr.endsAt=o.endsAt; }
+    }catch(e){}
+  }
+  function wrBeep(){
+    if(!($("wrBeep")&&$("wrBeep").checked)) return;
+    try{
+      const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+      const ctx=new AC(); const o=ctx.createOscillator(); const g=ctx.createGain();
+      o.type="sine"; o.frequency.value=880; o.connect(g); g.connect(ctx.destination);
+      g.gain.setValueAtTime(0.001,ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.25,ctx.currentTime+0.02);
+      g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.6);
+      o.start(); o.stop(ctx.currentTime+0.62);
+      setTimeout(()=>{ try{ctx.close();}catch(e){} },900);
+    }catch(e){}
+  }
+  function wrFlash(){
+    const p=$("wrPhase"); if(!p) return;
+    p.classList.remove("flash"); void p.offsetWidth; p.classList.add("flash");
+  }
+  function wrCurCycle(){ return heatCat(state.wbgt==null?null:+state.wbgt).wr; }
+  function wrStart(){
+    const cyc=wrCurCycle();
+    if(!cyc){ return; }                       // no cycle for this category
+    wr.running=true; wr.phase="work"; wr.endsAt=Date.now()+cyc.work*60000;
+    wrPersist(); wrBeep(); wrFlash(); wrTick();
+  }
+  function wrStop(){ wr.running=false; wr.endsAt=0; clearTimeout(wr.timer); wr.timer=null; wrPersist(); renderWR(); }
+  function wrAdvance(){
+    const cyc=wrCurCycle();
+    if(!cyc){ wrStop(); return; }             // category dropped to no-cycle mid-run
+    wr.phase=(wr.phase==="work")?"rest":"work";
+    wr.endsAt=Date.now()+(wr.phase==="work"?cyc.work:cyc.rest)*60000;
+    wrPersist(); wrBeep(); wrFlash();
+  }
+  function wrTick(){
+    clearTimeout(wr.timer); wr.timer=null;
+    if(wr.running && Date.now()>=wr.endsAt) wrAdvance();
+    renderWR();
+    if(wr.running) wr.timer=setTimeout(wrTick,250);
+  }
+  function renderWR(){
+    const cyc=wrCurCycle();
+    const recEl=$("wrRec"), phEl=$("wrPhase"), clkEl=$("wrClock"), noteEl=$("wrNote");
+    const startBtn=$("wrStart"), skipBtn=$("wrSkip"), stopBtn=$("wrStop");
+    if(!phEl) return;
+    const cat=heatCat(state.wbgt==null?null:+state.wbgt);
+    // Recommendation line
+    if(recEl){
+      if(state.wbgt==null) recEl.textContent="set WBGT to see the cycle";
+      else if(cyc) recEl.textContent=cyc.work+" min active / "+cyc.rest+" min rest · water "+cat.hydr;
+      else recEl.textContent=(cat===HEATCATS.C5)?"suspend strenuous activity · water "+cat.hydr
+                            :"continuous activity OK · water "+cat.hydr;
+    }
+    // If the category no longer supports a cycle, stop a running one.
+    if(wr.running && !cyc){ wrStop(); return; }
+    if(wr.running){
+      const leftMs=Math.max(0,wr.endsAt-Date.now());
+      const s=Math.round(leftMs/1000);
+      clkEl.textContent=pad(Math.floor(s/60))+":"+pad(s%60);
+      phEl.textContent=(wr.phase==="work")?"ACTIVE":"REST";
+      phEl.className="wr-phase "+wr.phase;
+      if(startBtn) startBtn.style.display="none";
+      if(skipBtn) skipBtn.style.display="";
+      if(stopBtn) stopBtn.style.display="";
+      if(noteEl) noteEl.textContent=(wr.phase==="work")
+        ? "Active play. Push water; watch for anyone flagging."
+        : "Rest in shade. Everyone drinks — "+cat.hydr+".";
+    }else{
+      clkEl.textContent="--:--";
+      phEl.textContent="READY"; phEl.className="wr-phase";
+      if(startBtn){ startBtn.style.display=cyc?"":"none"; }
+      if(skipBtn) skipBtn.style.display="none";
+      if(stopBtn) stopBtn.style.display="none";
+      if(noteEl){
+        noteEl.textContent = cyc ? "Press Start when the platoon begins active play; the timer will loop active/rest and chime at each switch."
+          : (state.wbgt==null ? "" : (cat===HEATCATS.C5 ? "Category 5 — suspend outdoor activity; no work/rest cycle." : "No cycle needed at this category — keep water available."));
+      }
+    }
   }
 
   // ---------- render tiles ----------
@@ -1068,6 +1216,31 @@
     }
     const total=list.length, out=list.filter(g=>String(g.holder||"").trim()).length;
     const chip=$("gsaChip"); if(chip) chip.textContent = total ? (out+" out · "+total+" total") : "no GSAs";
+  }
+
+  // ---------- render heat casualties ----------
+  const HC_TYPES=["Heat cramps","Heat exhaustion","Heat stroke","Other / precaution"];
+  function renderHeatCas(){
+    const b=$("hcBody"); if(!b) return; b.innerHTML="";
+    const list=state.heatCas||[];
+    if(list.length===0){
+      b.innerHTML='<tr><td colspan="5" class="inc-empty">No heat casualties logged. Board is green.</td></tr>';
+    }else{
+      list.forEach((c,i)=>{
+        const opts=HC_TYPES.map(t=>'<option'+(c.type===t?" selected":"")+'>'+t+'</option>').join("");
+        const tr=document.createElement("tr");
+        if(c.type==="Heat stroke") tr.className="hc-stroke";
+        tr.innerHTML=
+          '<td><input class="t" data-hc="'+i+'" data-f="time" value="'+esc(c.time)+'" placeholder="time"></td>'+
+          '<td><input class="row-label" data-hc="'+i+'" data-f="name" value="'+esc(c.name)+'" placeholder="name"></td>'+
+          '<td><select class="hc-type" data-hc="'+i+'" data-f="type">'+opts+'</select></td>'+
+          '<td><input data-hc="'+i+'" data-f="action" value="'+esc(c.action)+'" placeholder="cooled, medic notified, 911, RTD…"></td>'+
+          '<td><button class="icon-btn" data-delhc="'+i+'" title="Remove">×</button></td>';
+        b.appendChild(tr);
+      });
+    }
+    const n=list.length, stroke=list.filter(c=>c.type==="Heat stroke").length;
+    const chip=$("hcChip"); if(chip) chip.textContent = n ? (n+" logged"+(stroke?" · "+stroke+" stroke":"")) : "none";
   }
 
   // ---------- render incidents ----------
@@ -1295,7 +1468,7 @@
     });
   }
 
-  function renderAll(){ renderTiles(); renderPer(); renderSensitive(); renderGsa(); renderInc(); renderRoster(); renderDtabs(); renderPtabs(); renderSchedule(); renderHeat(); }
+  function renderAll(){ renderTiles(); renderPer(); renderSensitive(); renderGsa(); renderHeatCas(); renderInc(); renderRoster(); renderDtabs(); renderPtabs(); renderSchedule(); renderHeat(); }
  
   // ---------- events ----------
   // header + tile fields
@@ -1311,10 +1484,12 @@
     else if(t.dataset.sch!=null){ const s=curSched(); if(s&&s[+t.dataset.sch]) s[+t.dataset.sch][t.dataset.f]=t.value; if(t.dataset.f==="time") refreshSchedStatuses(); save(); }
     else if(t.dataset.si!=null){ const it=state.sensitive[+t.dataset.si]; const f=t.dataset.f; it[f]=(f==="name")?t.value:(+t.value||0); if(f!=="name") refreshSi(); save(); }
     else if(t.dataset.gsa!=null){ const g=state.gsas[+t.dataset.gsa]; g[t.dataset.f]=t.value; if(t.dataset.f==="holder"){ renderTiles(); const c=$("gsaChip"); if(c){ const l=state.gsas; c.textContent=l.filter(x=>String(x.holder||"").trim()).length+" out · "+l.length+" total"; } } save(); }
+    else if(t.dataset.hc!=null){ const c=state.heatCas[+t.dataset.hc]; if(c){ c[t.dataset.f]=t.value; save(); } }
   });
   document.body.addEventListener("change",e=>{
     const t=e.target;
     if(t.dataset.ros!=null){ const f=t.dataset.f; const r=state.roster[+t.dataset.ros]; r[f]=t.value; if(f==="status") r.last=nowDTG(); renderRoster(); renderTiles(); save(); return; }
+    else if(t.dataset.hc!=null && t.dataset.f==="type"){ const c=state.heatCas[+t.dataset.hc]; if(c){ c.type=t.value; renderHeatCas(); save(); } return; }
   });
   // delegated delete + add
   document.body.addEventListener("click",e=>{
@@ -1322,6 +1497,7 @@
     if(t.dataset.delinc!=null){ state.incidents.splice(+t.dataset.delinc,1); renderInc(); renderTiles(); save(); }
     else if(t.dataset.delsi!=null){ state.sensitive.splice(+t.dataset.delsi,1); renderSensitive(); save(); }
     else if(t.dataset.delgsa!=null){ state.gsas.splice(+t.dataset.delgsa,1); renderGsa(); renderTiles(); save(); }
+    else if(t.dataset.delhc!=null){ state.heatCas.splice(+t.dataset.delhc,1); renderHeatCas(); save(); }
     else if(t.dataset.delros!=null){ state.roster.splice(+t.dataset.delros,1); renderRoster(); renderTiles(); save(); }
     else if(t.dataset.delsch!=null){ const s=curSched(); if(s) s.splice(+t.dataset.delsch,1); renderSchedule(); save(); }
     else if(t.dataset.cancelsch!=null){ const s=curSched(); if(s&&s[+t.dataset.cancelsch]){ const r=s[+t.dataset.cancelsch]; r.canceled=!r.canceled; } renderSchedule(); save(); }
@@ -1331,6 +1507,10 @@
   });
   $("siAdd").addEventListener("click",()=>{ state.sensitive.push({name:"",qty:0,oh:0}); renderSensitive(); save(); });
   $("gsaAdd").addEventListener("click",()=>{ state.gsas.push({name:"",holder:"",loc:""}); renderGsa(); renderTiles(); save(); });
+  $("hcAdd").addEventListener("click",()=>{ state.heatCas.push({time:hhmmLocal(),name:"",type:"Heat exhaustion",action:""}); renderHeatCas(); save(); });
+  $("wrStart").addEventListener("click",wrStart);
+  $("wrStop").addEventListener("click",wrStop);
+  $("wrSkip").addEventListener("click",()=>{ if(wr.running){ wrAdvance(); renderWR(); } });
   $("siAllPresent").addEventListener("click",()=>{ (state.sensitive||[]).forEach(it=>{ it.oh=(+it.qty||0); }); state.siCheck=nowDTG(); renderSensitive(); save(); });
   $("addInc").addEventListener("click",()=>{
     const d=new Date();
@@ -1495,7 +1675,10 @@
     if(wxNow&&wxNow!=="--") L.push("WX (NWS): "+wxTmp+" "+wxNow);
     const alertChips=Array.from(document.querySelectorAll("#wxAlerts .wx-chip")).map(c=>c.textContent).filter(x=>x&&x!=="No active alerts");
     if(alertChips.length) L.push("WX ALERTS: "+alertChips.join(", "));
-    if(state.wbgt!=null){ const c=heatCat(+state.wbgt); L.push("HEAT: "+c.name+" ("+(c.flag?c.flag+", ":"")+"WBGT "+Math.round(+state.wbgt)+"°F) — "+c.work); }
+    if(state.wbgt!=null){ const c=heatCat(+state.wbgt); L.push("HEAT: "+c.name+" ("+(c.flag?c.flag+", ":"")+"WBGT "+Math.round(+state.wbgt)+"°F) — "+c.work+(c.wr?" · "+c.wr.work+"/"+c.wr.rest+" work-rest, water "+c.hydr:"")); }
+    { const hc=state.heatCas||[]; if(hc.length){ const stroke=hc.filter(c=>c.type==="Heat stroke").length;
+        L.push("HEAT CASUALTIES: "+hc.length+(stroke?" ("+stroke+" HEAT STROKE)":""));
+        hc.forEach(c=>{ L.push("  "+(String(c.time||"").trim()||"----")+" "+(String(c.name||"").trim()||"(unnamed)")+" — "+(c.type||"")+(String(c.action||"").trim()?": "+c.action.trim():"")); }); } }
     L.push("");
     { const pt=perstatTotals(); L.push("ON GROUND: "+pt.pres+" / "+pt.asg); }
     L.push("INCIDENT REPORTS: "+state.incidents.length+" ("+state.incidents.filter(i=>i.status!=="Closed").length+" open)");
@@ -1802,6 +1985,7 @@
     hydrateInputs();
     renderAll();
     setupCollapsibles();
+    wrRestore(); if(wr.running) wrTick(); else renderWR();  // resume a running work/rest cycle after reload
     tickClock(); setInterval(tickClock,1000);
     setInterval(refreshSchedStatuses,30000); // advance schedule statuses as time passes
     WX.load();
