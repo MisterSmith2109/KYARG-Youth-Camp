@@ -96,6 +96,11 @@
   .mr-status.filled{background:var(--green);color:#0f1a0e}
   .mr-status.sent{background:var(--panel-2);color:var(--muted);border:1px solid var(--line)}
   .mr-status.pending{background:var(--panel-2);color:var(--amber);border:1px dashed var(--line)}
+  .mr-status.logged{background:var(--panel-2);color:var(--olive-bright);border:1px solid var(--line)}
+  .mr-tag{font-family:var(--mono);font-size:9px;font-weight:800;letter-spacing:.06em;padding:2px 6px;border-radius:5px;vertical-align:middle;margin-right:2px}
+  .mr-tag.supply{background:#16202b;color:#9fc4d8;border:1px solid #3a5563}
+  .mr-tag.incident{background:#2a1410;color:#e6a99c;border:1px solid #5a352e}
+  .mr-tag.heat{background:#2a2205;color:var(--amber);border:1px solid #5a4a1a}
   /* report sheet: incident / heat casualty */
   .seg{display:flex;gap:6px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:4px;margin-bottom:14px}
   .seg-b{flex:1;background:none;border:none;color:var(--muted);font-weight:700;padding:9px 8px;border-radius:7px;min-height:40px}
@@ -197,7 +202,7 @@
   </div>
 
   <div class="card myreq hide" id="myReqCard">
-    <div class="mr-head"><span class="k">My supply requests</span><button class="mr-clear" id="mrClear">clear</button></div>
+    <div class="mr-head"><span class="k" id="mrTitle">sent to TOC</span></div>
     <div id="myReqList"></div>
   </div>
 
@@ -304,7 +309,7 @@
 <script>
 (function(){
   var $=function(id){return document.getElementById(id);};
-  var LS_URL="kyarng-psg-url", LS_PLT="kyarng-psg-platoon", LS_WR="kyarng-psg-wr", LS_SENT="kyarng-psg-sent",
+  var LS_URL="kyarng-psg-url", LS_PLT="kyarng-psg-platoon", LS_WR="kyarng-psg-wr",
       LS_OUTBOX="kyarng-psg-outbox", LS_BOARD="kyarng-psg-board";
   var HC_TYPES=["Heat cramps","Heat exhaustion","Heat stroke","Other / precaution"]; // must match index.html
   var INC_QUICK=["Injury","Illness","Missing camper","Behavior","Dehydration","Other"];
@@ -395,9 +400,9 @@
     board[listKey].push(rec);
     return board;
   }
-  function queueSend(board, recId, label){
+  function queueSend(board, rec, kind, label){
     var a=loadOutbox();
-    a.push({ id:recId, board:board, label:label||"Report", tries:0 });
+    a.push({ id:rec.id, board:board, rec:rec, kind:kind, label:label||"Report", tries:0 });
     if(a.length>20) a=a.slice(a.length-20);
     saveOutbox(a);
     setStatus(); renderSent();
@@ -573,47 +578,57 @@
   $("btnSettings").addEventListener("click",function(){ openSetup(false); });
   $("wrBtn").addEventListener("click",function(){ if(wr.running) wrStop(); else wrStart(); });
 
-  // ---------- my supply requests (local history + live status) ----------
-  // Kept on THIS phone so the PSG has a record of what they sent, and can see it
-  // move Sent -> Open -> Filled as the TOC works it. Read from localStorage; the
-  // live status is cross-referenced against the shared board by request id.
-  function loadSent(){ try{ var a=JSON.parse(localStorage.getItem(LS_SENT)||"[]"); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
-  function saveSent(a){ try{ localStorage.setItem(LS_SENT, JSON.stringify(a||[])); }catch(e){} }
-  function addSent(rec){
-    var a=loadSent();
-    a.push({id:rec.id, platoon:rec.platoon, item:rec.item, qty:rec.qty, priority:rec.priority, notes:rec.notes, time:rec.time, sent:rec._m});
-    if(a.length>50) a=a.slice(a.length-50); // keep it short on the phone
-    saveSent(a);
-    renderSent();
+  // ---------- platoon → TOC: shared requests + reports (read from the live board) ----------
+  // Shows everything THIS platoon has sent — supply requests, incident reports, heat-casualty
+  // reports — from ANY phone on the platoon, with live status. Anything this phone has queued but
+  // not yet delivered is shown as PENDING from the outbox. Because it reads the shared board, the
+  // PSG and APSG both see the same list.
+  function fmtHm(t){ t=String(t||""); return /^\d{4}$/.test(t)?(t.slice(0,2)+":"+t.slice(2,4)):t; }
+  function stripTag(txt,plt){ txt=String(txt||""); if(plt&&txt.indexOf(plt+": ")===0) return txt.slice(plt.length+2); return txt; }
+  function stripName(name,plt){ name=String(name||""); var suf=" ("+plt+")"; if(plt&&name.slice(-suf.length)===suf) return name.slice(0,-suf.length); return name; }
+  function supplyView(r){ return { kind:"supply", tag:"SUPPLY", id:r.id, when:r._m||0, time:r.time,
+      title:(r.item||"—"), qty:r.qty||"", sub:r.notes||"", urgent:r.priority==="Urgent",
+      pri:(r.priority&&r.priority!=="Routine")?r.priority:"",
+      status: (String(r.status).toLowerCase()==="filled")?["filled","FILLED"]:["open","OPEN"] }; }
+  function incidentView(r,plt){ return { kind:"incident", tag:"INCIDENT", id:r.id, when:r._m||0, time:fmtHm(r.time),
+      title:(r.type||"Incident"), sub:stripTag(r.remarks,plt), urgent:false, status:["logged","LOGGED"] }; }
+  function heatView(r,plt){ var nm=stripName(r.name,plt); return { kind:"heat", tag:"HEAT", id:r.id, when:r._m||0, time:r.time,
+      title:(nm?nm+" — ":"")+(r.type||"Heat casualty"), sub:r.action||"", urgent:(r.type==="Heat stroke"), status:["logged","LOGGED"] }; }
+  function platoonFeed(){
+    var b=state.board, plt=state.platoon, out=[], have={}, pend=outboxIds();
+    function tagPending(v){ if(pend[v.id]) v.status=["pending","PENDING"]; return v; } // still queued -> PENDING
+    if(plt&&b){
+      (b.supplyRequests||[]).forEach(function(r){ if(r&&r.id!=null&&r.platoon===plt){ out.push(tagPending(supplyView(r))); have[r.id]=1; } });
+      (b.incidents||[]).forEach(function(r){ if(r&&r.id!=null&&r.platoon===plt){ out.push(tagPending(incidentView(r,plt))); have[r.id]=1; } });
+      (b.heatCas||[]).forEach(function(r){ if(r&&r.id!=null&&r.platoon===plt){ out.push(tagPending(heatView(r,plt))); have[r.id]=1; } });
+    }
+    // safety net: queued items not (yet) reflected in the board copy — show them as PENDING
+    loadOutbox().forEach(function(x){
+      if(!x||have[x.id]||!x.rec||(x.rec.platoon&&x.rec.platoon!==plt)) return;
+      var v = x.kind==="incident"?incidentView(x.rec,plt) : x.kind==="heat"?heatView(x.rec,plt) : supplyView(x.rec);
+      v.status=["pending","PENDING"]; out.push(v);
+    });
+    out.sort(function(a,b){ return (b.when||0)-(a.when||0); }); // newest first
+    return out;
   }
   function renderSent(){
-    var card=$("myReqCard"), list=$("myReqList"); if(!card||!list) return;
-    var mine=loadSent().filter(function(r){ return r && (!state.platoon || !r.platoon || r.platoon===state.platoon); });
-    if(!mine.length){ card.classList.add("hide"); list.innerHTML=""; return; }
+    var card=$("myReqCard"), list=$("myReqList"), title=$("mrTitle"); if(!card||!list) return;
+    var feed=platoonFeed();
+    if(title) title.textContent=(state.platoon?state.platoon+" — ":"")+"sent to TOC";
+    if(!feed.length){ card.classList.add("hide"); list.innerHTML=""; return; }
     card.classList.remove("hide");
-    // index the board's requests by id so we can show live Pending/Sent/Open/Filled
-    var byId={}, srv=(state.board&&Array.isArray(state.board.supplyRequests))?state.board.supplyRequests:[];
-    srv.forEach(function(r){ if(r&&r.id!=null) byId[r.id]=r; });
-    var pend=outboxIds();
     list.innerHTML="";
-    mine.slice().reverse().forEach(function(r){
-      var on=byId[r.id], statusCls, statusTxt;
-      if(pend[r.id]){ statusCls="pending"; statusTxt="PENDING"; }
-      else if(!on){ statusCls="sent"; statusTxt="SENT"; }
-      else if(String(on.status).toLowerCase()==="filled"){ statusCls="filled"; statusTxt="FILLED"; }
-      else { statusCls="open"; statusTxt="OPEN"; }
-      var t=r.time&&/^\d{4}$/.test(r.time)?(r.time.slice(0,2)+":"+r.time.slice(2,4)):(r.time||"");
-      var pri=(r.priority||"Routine");
-      var meta=[t, pri].filter(Boolean).join(" · ");
+    feed.forEach(function(v){
+      var meta=[v.time, v.pri, v.sub].filter(Boolean).join(" · ");
       var d=document.createElement("div"); d.className="mr-row";
-      d.innerHTML='<div class="mr-main"><div class="mr-item">'+esc(r.item||"—")+
-        (r.qty?' <span class="muted">×'+esc(r.qty)+'</span>':'')+'</div>'+
-        '<div class="mr-meta'+(pri==="Urgent"?" mr-pri-urgent":"")+'">'+esc(meta)+'</div></div>'+
-        '<span class="mr-status '+statusCls+'">'+statusTxt+'</span>';
+      d.innerHTML='<div class="mr-main"><div class="mr-item">'+
+        '<span class="mr-tag '+v.kind+'">'+v.tag+'</span> '+esc(v.title)+
+        (v.qty?' <span class="muted">×'+esc(v.qty)+'</span>':'')+'</div>'+
+        '<div class="mr-meta'+(v.urgent?" mr-pri-urgent":"")+'">'+esc(meta)+'</div></div>'+
+        '<span class="mr-status '+v.status[0]+'">'+v.status[1]+'</span>';
       list.appendChild(d);
     });
   }
-  $("mrClear").addEventListener("click",function(){ saveSent([]); renderSent(); });
 
   // ---------- supply request (the one thing the phone SENDS) ----------
   var toastTimer=null;
@@ -638,8 +653,7 @@
     };
     var board=snapshotWith("supplyRequests", rec);
     state.board=board;   // optimistic local copy so it shows right away
-    addSent(rec);        // record it in this phone's history so the PSG has confirmation
-    queueSend(board, rec.id, "Supply request"); // queued + auto-retried if signal is poor
+    queueSend(board, rec, "supply", "Supply request"); // queued + auto-retried if signal is poor
     closeSupply();
     $("supItem").value=""; $("supQty").value=""; $("supNotes").value=""; $("supPri").value="Routine";
     $("supItem").style.borderColor="";
@@ -678,15 +692,19 @@
       var what=$("repIncType").value.trim();
       if(!what){ $("repIncType").focus(); $("repIncType").style.borderColor="var(--red)"; return; }
       var rem=$("repIncRemarks").value.trim();
+      // remarks carry the platoon as text so the TOC's Incident Log (no platoon column) shows it;
+      // the platoon field is what the PSG page filters its shared list on.
       var rec={ id:"in"+now.toString(36)+Math.random().toString(36).slice(2,6),
-        time:dtgZ(), type:what, remarks:(plt?plt+": ":"")+rem, status:"Open", _m:now };
-      queueSend(snapshotWith("incidents", rec), rec.id, "Incident report");
+        time:dtgZ(), type:what, remarks:(plt?plt+": ":"")+rem, status:"Open", platoon:plt, _m:now };
+      var ib=snapshotWith("incidents", rec); state.board=ib; // optimistic so it shows right away
+      queueSend(ib, rec, "incident", "Incident report");
     }else{
       var nm=$("repHeatName").value.trim();
       var rec2={ id:"hc"+now.toString(36)+Math.random().toString(36).slice(2,6),
         time:pad(c.h)+":"+pad(c.m), name:(nm+(plt?" ("+plt+")":"")).trim(),
-        type:$("repHeatType").value||"Heat exhaustion", action:$("repHeatAction").value.trim(), _m:now };
-      queueSend(snapshotWith("heatCas", rec2), rec2.id, "Heat casualty report");
+        type:$("repHeatType").value||"Heat exhaustion", action:$("repHeatAction").value.trim(), platoon:plt, _m:now };
+      var hb=snapshotWith("heatCas", rec2); state.board=hb; // optimistic so it shows right away
+      queueSend(hb, rec2, "heat", "Heat casualty report");
     }
     closeReport();
   }
