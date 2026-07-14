@@ -93,6 +93,7 @@
   .abtn .ico{font-size:22px;line-height:1}
   .abtn.report{background:#2a1410;border-color:var(--red);color:#ffd9d1}
   .abtn.call{background:#10231a;border-color:var(--green);color:#cdeccd}
+  .abtn.notes{background:#231e10;border-color:var(--amber);color:#f0d9a6}
   .abtn.supply{grid-column:1/-1;background:#16202b;border-color:#5a7d8c;color:#cfe3ef}
   .abtn.disabled{opacity:.4;pointer-events:none}
   /* My supply requests (local history + live status) */
@@ -150,7 +151,16 @@
   .sheet h1{font-size:19px;margin:0 0 4px} .sheet p{color:var(--muted);font-size:14px;margin:0 0 14px}
   .field{margin-bottom:12px}
   .field label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
-  .field input,.field select{width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);min-height:44px}
+  .field input,.field select,.field textarea{width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);min-height:44px}
+  .field textarea{font-family:inherit;font-size:16px;line-height:1.4;resize:vertical}
+  /* notes list */
+  .nt-row{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line-soft)}
+  .nt-row:first-child{border-top:none}
+  .nt-main{flex:1;min-width:0}
+  .nt-when{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  .nt-text{font-size:15px;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:anywhere;margin-top:2px}
+  .nt-del{background:none;border:none;color:var(--muted);font-size:20px;line-height:1;padding:2px 8px;min-height:36px;flex:none}
+  #noteList{max-height:38vh;overflow-y:auto}
   .primary{width:100%;min-height:48px;border-radius:10px;border:1px solid var(--olive-bright);background:var(--olive);color:#12140e;font-weight:800;font-size:16px;margin-top:4px}
   .primary:active{background:var(--olive-bright)}
   .linkbtn{background:none;border:none;color:var(--muted);text-decoration:underline;font-size:13px;padding:8px}
@@ -223,7 +233,7 @@
 
   <div class="actions">
     <button class="abtn report" id="btnReport"><span class="ico">📝</span>Report to TOC</button>
-    <a class="abtn call disabled" id="btnCall"><span class="ico">📞</span>Call TOC</a>
+    <button class="abtn notes" id="btnNotes"><span class="ico">🗒️</span>Notes</button>
     <button class="abtn supply" id="btnSupply"><span class="ico">📦</span>Supply Request</button>
   </div>
 
@@ -330,6 +340,22 @@
   </div>
 </div>
 
+<!-- notes sheet (private to this phone) -->
+<div class="overlay hide" id="notes">
+  <div class="sheet">
+    <h1>Notes</h1>
+    <p>Private to this phone — jot AAR comments or anything to remember later. Saved automatically, even offline.</p>
+    <div class="field">
+      <label>New note</label>
+      <textarea id="noteText" rows="3" placeholder="e.g. archery range needs more shade; lunch ran 15 min late"></textarea>
+    </div>
+    <button class="primary" id="noteAdd">Add note</button>
+    <div class="mr-head hide" id="noteHead" style="margin-top:16px"><span class="k">Saved notes</span><button class="mr-clear" id="noteCopy">copy all</button></div>
+    <div id="noteList"></div>
+    <div style="text-align:center;margin-top:12px"><button class="linkbtn" id="noteClose">Done</button></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -337,7 +363,7 @@
   var $=function(id){return document.getElementById(id);};
   var LS_URL="kyarng-psg-url", LS_PLT="kyarng-psg-platoon", LS_WR="kyarng-psg-wr",
       LS_OUTBOX="kyarng-psg-outbox", LS_BOARD="kyarng-psg-board",
-      LS_NOTIFY="kyarng-psg-notify", LS_ALERTED="kyarng-psg-alerted";
+      LS_NOTIFY="kyarng-psg-notify", LS_ALERTED="kyarng-psg-alerted", LS_NOTES="kyarng-psg-notes";
   var ALERT_LEAD=10; // minutes before an event to alert
   var HC_TYPES=["Heat cramps","Heat exhaustion","Heat stroke","Other / precaution"]; // must match index.html
   var INC_QUICK=["Injury","Illness","Missing camper","Behavior","Dehydration","Other"];
@@ -556,9 +582,6 @@
     if($("wrBtn")) $("wrBtn").style.display = cat.wr ? "" : "none";
     if(!cat.wr && wr.running) wrStop();
 
-    // action buttons
-    var phone=b&&b.tocPhone?String(b.tocPhone).trim():"";
-    var cb=$("btnCall"); if(phone){ cb.href="tel:"+phone.replace(/[^0-9+]/g,""); cb.classList.remove("disabled"); } else { cb.removeAttribute("href"); cb.classList.add("disabled"); }
 
     // today list
     var list=$("schedList"); list.innerHTML="";
@@ -819,6 +842,58 @@
   $("repTabInc").addEventListener("click",function(){ setReportMode("inc"); });
   $("repTabHeat").addEventListener("click",function(){ setReportMode("heat"); });
   $("repHeatType").addEventListener("change",function(){ $("repHsWarn").classList.toggle("hide", this.value!=="Heat stroke"); });
+
+  // ---------- notes (private to this phone; AAR jots + reminders) ----------
+  function loadNotes(){ try{ var a=JSON.parse(localStorage.getItem(LS_NOTES)||"[]"); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+  function saveNotes(a){ try{ localStorage.setItem(LS_NOTES, JSON.stringify(a||[])); }catch(e){} }
+  function noteWhen(n){ return (n.day?n.day.slice(0,3).toUpperCase()+" ":"")+(n.time||""); }
+  function renderNotes(){
+    var list=$("noteList"), head=$("noteHead"); if(!list) return;
+    var a=loadNotes();
+    if(head) head.classList.toggle("hide", a.length===0);
+    list.innerHTML="";
+    a.slice().reverse().forEach(function(n){
+      var row=document.createElement("div"); row.className="nt-row";
+      row.innerHTML='<div class="nt-main"><div class="nt-when">'+esc(noteWhen(n))+'</div><div class="nt-text">'+esc(n.text)+'</div></div>'+
+        '<button class="nt-del" data-id="'+esc(n.id)+'" aria-label="Delete note">×</button>';
+      list.appendChild(row);
+    });
+  }
+  function addNote(){
+    var t=$("noteText").value.trim(); if(!t){ $("noteText").focus(); return; }
+    var c=campNow(), a=loadNotes();
+    a.push({ id:"nt"+Date.now().toString(36)+Math.random().toString(36).slice(2,5), text:t,
+      day:CAMP_DAYS[c.dayIdx]||"", time:pad(c.h)+":"+pad(c.m), _m:Date.now() });
+    if(a.length>300) a=a.slice(a.length-300);
+    saveNotes(a); $("noteText").value=""; renderNotes(); toast("Note saved"); $("noteText").focus();
+  }
+  function copyText(t,okMsg){
+    function ok(){ toast(okMsg||"Copied ✓"); }
+    try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(ok,function(){ fallbackCopy(t,ok); }); return; } }catch(e){}
+    fallbackCopy(t,ok);
+  }
+  function fallbackCopy(t,ok){
+    try{ var ta=document.createElement("textarea"); ta.value=t; ta.setAttribute("readonly","");
+      ta.style.position="fixed"; ta.style.top="-1000px"; ta.style.opacity="0"; document.body.appendChild(ta);
+      ta.focus(); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); ok(); }
+    catch(e){ toast("Couldn't copy — long-press the notes to select.",true); }
+  }
+  function copyAllNotes(){
+    var a=loadNotes(); if(!a.length){ toast("No notes yet."); return; }
+    var plt=state.platoon||"", lines=a.map(function(n){ return noteWhen(n)+" — "+n.text; });
+    copyText((plt?plt+" — Notes\n":"Notes\n")+lines.join("\n"),"Notes copied ✓");
+  }
+  function openNotes(){ renderNotes(); $("notes").classList.remove("hide"); setTimeout(function(){ $("noteText").focus(); },50); }
+  function closeNotes(){ $("notes").classList.add("hide"); }
+  $("btnNotes").addEventListener("click",openNotes);
+  $("noteAdd").addEventListener("click",addNote);
+  $("noteClose").addEventListener("click",closeNotes);
+  $("noteCopy").addEventListener("click",copyAllNotes);
+  $("noteList").addEventListener("click",function(e){
+    var b=e.target&&(e.target.classList.contains("nt-del")?e.target:null); if(!b) return;
+    var id=b.getAttribute("data-id");
+    saveNotes(loadNotes().filter(function(n){ return n.id!==id; })); renderNotes();
+  });
 
   $("btnAlerts").addEventListener("click",requestAlerts);
   $("evtAlertX").addEventListener("click",function(){ dismissedKey=shownKey; $("evtAlert").classList.add("hide"); });
