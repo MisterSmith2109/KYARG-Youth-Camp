@@ -116,7 +116,14 @@ from a phone, not just a laptop or wall display.
   auto-retried**, so a request or report made with poor signal isn't lost — it
   shows as *Pending* and goes out as soon as signal returns (the header shows how
   many are waiting). The page also **caches the last board**, so the schedule,
-  heat flag, and the send buttons still work with no signal. The phones are read-only apart from these sends — a phone can only *add*
+  heat flag, and the send buttons still work with no signal.
+
+  A **10-minute heads-up** fires before each of the platoon's activities: an
+  in-app banner plus a chime and vibration (works whenever the page is open),
+  and — for phones that opt in with the **🔔 bell** toggle — a **lock-screen
+  notification** so a pocketed phone still gets the alert. (On iPhone the
+  lock-screen alerts need the page **Added to Home Screen** first; the in-app
+  banner works either way.) The phones are read-only apart from these sends — a phone can only *add*
   a request or report, never change anything else on the board. Set the
   announcement and TOC phone number in the **Field / PSG Broadcast** panel on the
   main board, which also shows a **QR code and "Copy PSG link"** — a PSG scans the
