@@ -45,7 +45,13 @@
   .ea-meta{font-family:var(--mono);font-size:13px;font-weight:700;opacity:.85;margin-top:2px}
   .ea-x{background:rgba(18,20,14,.18);border:none;color:#12140e;font-size:22px;line-height:1;width:34px;height:34px;border-radius:8px;flex:none}
 
+  /* platoon schedule picker (Lifeline/HQ only) */
+  .pltpick{padding:12px 14px}
+  .pp-chips{display:flex;gap:7px;overflow-x:auto;padding:8px 2px 2px;-webkit-overflow-scrolling:touch}
+  .pp-chip{flex:none;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);font-weight:700;font-size:14px;padding:8px 13px;border-radius:20px;min-height:40px;white-space:nowrap}
+  .pp-chip.on{background:var(--olive);color:#12140e;border-color:var(--olive-bright)}
   .now-hd{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .now-hd .k .vp{color:var(--olive-bright)}
   .now-act{font-size:26px;font-weight:800;line-height:1.15;margin:6px 0 3px;text-wrap:balance}
   .now-loc{font-size:16px;color:var(--olive-bright);font-weight:600}
   .now-time{font-family:var(--mono);font-size:15px;color:var(--muted);margin-top:4px}
@@ -176,15 +182,20 @@
 
   <div class="card announce hide" id="annCard"><span class="ann-i">NOTICE</span><span id="annText"></span></div>
 
+  <div class="card pltpick hide" id="pltPick">
+    <div class="k">Platoon schedule</div>
+    <div class="pp-chips" id="pltChips"></div>
+  </div>
+
   <div class="card">
-    <div class="now-hd"><span class="k">Right now</span><span class="pill now" id="nowPill">NOW</span></div>
+    <div class="now-hd"><span class="k" id="nowHd">Right now</span><span class="pill now" id="nowPill">NOW</span></div>
     <div class="now-act" id="nowAct">—</div>
     <div class="now-loc" id="nowLoc"></div>
     <div class="now-time" id="nowTime"></div>
   </div>
 
   <div class="card">
-    <div class="now-hd"><span class="k">Next up</span><span class="pill next">NEXT</span></div>
+    <div class="now-hd"><span class="k" id="nextHd">Next up</span><span class="pill next">NEXT</span></div>
     <div class="next-act" id="nextAct">—</div>
     <div class="now-loc" id="nextLoc"></div>
     <div class="now-time" id="nextTime"></div>
@@ -222,7 +233,7 @@
   </div>
 
   <details class="today">
-    <summary><span>Rest of today</span><span class="chev">tap to expand ▾</span></summary>
+    <summary><span id="restToday">Rest of today</span><span class="chev">tap to expand ▾</span></summary>
     <div class="sched-list" id="schedList"></div>
   </details>
 
@@ -334,6 +345,8 @@
   var CAMP_DAYS=["Saturday","Sunday","Monday","Tuesday","Wednesday","Thursday","Friday"];
   var WEEKDAY_IDX={Sat:0,Sun:1,Mon:2,Tue:3,Wed:4,Thu:5,Fri:6};
   var PLATOONS=["Alpha","Bravo","Charlie","Delta","Echo","Foxtrot","Golf","Hotel"];
+  // The Lifeline (HQ) dashboard can browse every platoon's schedule; regular platoons see only their own.
+  var HQ_NAMES=["lifeline","hq"]; // platoon names that unlock the platoon schedule picker
 
   // U.S. Army heat categories (TB MED 507); work/rest + hourly water, kept conservative for youth.
   var HEATCATS={
@@ -370,6 +383,9 @@
   function to12(min){ var h=Math.floor(min/60)%24, mi=min%60; var ap=h<12?"a":"p"; var h12=h%12||12; return h12+":"+pad(mi)+ap; }
 
   var state={ board:null, rev:-1, url:"", platoon:"", online:false };
+  var viewPlatoon=""; // Lifeline(HQ) only: which platoon's schedule is being viewed ("" = own)
+  function isHQView(){ return HQ_NAMES.indexOf(String(state.platoon||"").trim().toLowerCase())>=0; }
+  function schedPlatoon(){ return (isHQView() && viewPlatoon) ? viewPlatoon : state.platoon; } // whose schedule to show
 
   // Keep the last board we saw so the page still works with no signal (schedule, heat, and
   // queuing reports/requests all need a board to build from).
@@ -453,11 +469,12 @@
   }
 
   // ---------- schedule now/next ----------
-  function todayRows(){
+  function todayRows(){ return rowsFor(schedPlatoon()); } // what the schedule cards display
+  function rowsFor(name){
     var b=state.board; if(!b||!b.platoons) return [];
-    var plt=null; for(var i=0;i<b.platoons.length;i++){ if(b.platoons[i] && b.platoons[i].name===state.platoon){ plt=b.platoons[i]; break; } }
+    var plt=null; for(var i=0;i<b.platoons.length;i++){ if(b.platoons[i] && b.platoons[i].name===name){ plt=b.platoons[i]; break; } }
     if(!plt){ // fall back to index by standard order
-      var ix=PLATOONS.indexOf(state.platoon); if(ix>=0 && b.platoons[ix]) plt=b.platoons[ix];
+      var ix=PLATOONS.indexOf(name); if(ix>=0 && b.platoons[ix]) plt=b.platoons[ix];
     }
     if(!plt||!plt.sched) return [];
     var day=CAMP_DAYS[campNow().dayIdx]||CAMP_DAYS[0];
@@ -487,11 +504,33 @@
   }
 
   // ---------- render ----------
+  // Lifeline(HQ) platoon picker: chips to browse any platoon's schedule. Hidden for regular platoons.
+  function renderPltPicker(){
+    var card=$("pltPick"), box=$("pltChips"); if(!card||!box) return;
+    if(!isHQView() || !state.board || !state.board.platoons || !state.board.platoons.length){ card.classList.add("hide"); return; }
+    card.classList.remove("hide");
+    var cur=schedPlatoon();
+    box.innerHTML="";
+    state.board.platoons.forEach(function(p){
+      if(!p||!p.name) return;
+      var chip=document.createElement("button");
+      chip.className="pp-chip"+(p.name===cur?" on":"");
+      chip.textContent=p.name;
+      chip.addEventListener("click",function(){ viewPlatoon=(p.name===state.platoon)?"":p.name; render(); });
+      box.appendChild(chip);
+    });
+  }
   function render(){
     var b=state.board;
     $("hPlt").textContent=state.platoon||"—";
     if(b&&b.campName) $("hCamp").textContent=String(b.campName).toUpperCase();
     setStatus();
+    renderPltPicker();
+    // when browsing another platoon (Lifeline/HQ), label the schedule cards with whose it is
+    var viewing=(isHQView() && schedPlatoon()!==state.platoon) ? schedPlatoon() : "";
+    $("nowHd").innerHTML="Right now"+(viewing?' <span class="vp">· '+esc(viewing)+"</span>":"");
+    if($("nextHd")) $("nextHd").innerHTML="Next up"+(viewing?' <span class="vp">· '+esc(viewing)+"</span>":"");
+    var rt=$("restToday"); if(rt) rt.textContent="Rest of today"+(viewing?" · "+viewing:"");
 
     // announcement
     var msg=b&&b.psgMsg?String(b.psgMsg).trim():"";
@@ -561,7 +600,7 @@
   }
   function checkEventAlert(){
     var ea=$("evtAlert"); if(!ea) return;
-    var rows=todayRows(), nn=rows.length?nowNext(rows):{cur:null,next:null}, next=nn.next;
+    var rows=rowsFor(state.platoon), nn=rows.length?nowNext(rows):{cur:null,next:null}, next=nn.next; // always my own platoon
     if(!next||!next.rng){ ea.classList.add("hide"); return; }
     var mins=next.rng.start-nowMin(); if(mins<0) mins+=1440;
     var key=evtKey(next);

@@ -98,7 +98,10 @@ from a phone, not just a laptop or wall display.
   (via the sync link) and shows just what they need: their platoon's **Now / Next**
   activity and location, the **heat flag + water/work-rest guidance** (with an
   optional work/rest timer), **Call TOC**, and three quick things the phone can
-  send straight to the TOC board:
+  send straight to the TOC board. The **Lifeline (HQ)** phone additionally gets a
+  **platoon picker** — tap any platoon to browse its Now / Next and rest-of-day
+  schedule (their own pre-event alerts still follow Lifeline); regular platoons
+  just see their own.
   - **Supply Request** (item, quantity, priority) → lands in the TOC's Supply
     Requests panel.
   - **Report to TOC** → a native quick-report (no Google Form) that posts an
