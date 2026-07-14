@@ -82,6 +82,16 @@ it works, online or offline.
   computers through a small Google Apps Script you deploy once. See
   [SYNC-SETUP.md](SYNC-SETUP.md).
 - **Kiosk mode** — full-screen with screen wake-lock for a wall display.
+- **PSG Field View (`psg.html`)** *(new)* — a separate **phone-first, read-only** page
+  for Platoon Sergeants out with the campers. It connects to the same live board
+  (via the sync link) and shows just what they need: their platoon's **Now / Next**
+  activity and location, the **heat flag + water/work-rest guidance** (with an
+  optional work/rest timer), a one-tap **Report to TOC** (your incident form) and
+  **Call TOC** button, and any **announcement** the TOC broadcasts. The phones only
+  *read* the board — they can't change it. Set the announcement, incident form
+  link, and TOC phone number in the **Field / PSG Broadcast** panel on the main
+  board. (This broadcast channel is synced, so it needs the updated `sync/Code.gs`
+  deployed — see [SYNC-SETUP.md](SYNC-SETUP.md).)
 
 ## Saving & moving the board between computers
 

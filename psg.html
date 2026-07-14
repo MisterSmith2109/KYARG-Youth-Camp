@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12140e">
+<title>PSG Field View — KYARNG Youth Camp</title>
+<style>
+  :root{
+    --bg:#12140e; --panel:#1b1e16; --panel-2:#22261c; --line:#3a3f30; --line-soft:#2a2e22;
+    --ink:#e9ead9; --muted:#9aa085; --olive:#7f8b4f; --olive-bright:#a8b86a;
+    --amber:#e0a53b; --green:#5fae5a; --red:#d5533f; --black-status:#767b66;
+    --mono:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    line-height:1.4;-webkit-text-size-adjust:100%;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+  .wrap{max-width:560px;margin:0 auto;padding:12px 12px 40px}
+  button,input,select{font-family:inherit;font-size:16px}
+  button{cursor:pointer}
+  .mono{font-family:var(--mono)}
+
+  /* header */
+  header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 2px 12px;border-bottom:2px solid var(--olive)}
+  .h-name{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--olive-bright)}
+  .h-plt{font-weight:800;font-size:20px;line-height:1.1}
+  .h-right{text-align:right}
+  .h-time{font-family:var(--mono);font-size:15px;font-weight:700}
+  .h-stat{font-family:var(--mono);font-size:10px;color:var(--muted);display:flex;align-items:center;gap:5px;justify-content:flex-end;margin-top:2px}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--black-status);flex:none}
+  .dot.on{background:var(--green)} .dot.warn{background:var(--amber)}
+
+  /* cards */
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 15px;margin-top:12px}
+  .k{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+  .announce{background:var(--amber);color:#241a05;border:none;font-weight:600;font-size:16px;display:flex;gap:10px;align-items:flex-start}
+  .announce .ann-i{font-weight:800;font-family:var(--mono);font-size:12px;letter-spacing:.12em;padding-top:2px;white-space:nowrap}
+
+  .now-hd{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .now-act{font-size:26px;font-weight:800;line-height:1.15;margin:6px 0 3px;text-wrap:balance}
+  .now-loc{font-size:16px;color:var(--olive-bright);font-weight:600}
+  .now-time{font-family:var(--mono);font-size:15px;color:var(--muted);margin-top:4px}
+  .pill{font-family:var(--mono);font-size:11px;font-weight:800;letter-spacing:.05em;padding:3px 9px;border-radius:20px;white-space:nowrap}
+  .pill.now{background:var(--green);color:#0f1a0e}
+  .pill.next{background:var(--panel-2);color:var(--olive-bright);border:1px solid var(--line)}
+  .next-act{font-size:19px;font-weight:700;margin:5px 0 2px}
+  .muted{color:var(--muted)}
+
+  /* heat */
+  .heat{border:none;padding:0;overflow:hidden}
+  .heat-top{padding:14px 15px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .heat-cat{font-family:var(--mono);font-weight:800;font-size:20px;letter-spacing:.04em}
+  .heat-flagword{font-family:var(--mono);font-size:12px;font-weight:700;opacity:.85}
+  .heat-wbgt{font-family:var(--mono);font-weight:800;font-size:30px;line-height:1;text-align:right}
+  .heat-wbgt small{font-size:12px;font-weight:600;opacity:.8}
+  .heat-body{background:var(--panel);padding:13px 15px}
+  .g-row{display:flex;gap:10px;margin-bottom:8px}
+  .g-row:last-child{margin-bottom:0}
+  .g-k{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);min-width:60px;padding-top:2px}
+  .g-v{font-size:15px;flex:1}
+  .heat-NA{background:var(--panel-2);color:var(--muted)} .heat-LOW{background:var(--panel-2);color:var(--olive-bright)}
+  .heat-GREEN{background:var(--green);color:#0f1a0e} .heat-YELLOW{background:var(--amber);color:#241a05}
+  .heat-RED{background:var(--red);color:#2a0d08} .heat-BLACK{background:#15160f;color:#e9ead9;border-bottom:1px solid var(--line)}
+
+  /* work/rest timer */
+  .wr{display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap}
+  .wr-phase{font-family:var(--mono);font-weight:800;font-size:14px;padding:5px 11px;border-radius:6px;background:var(--panel-2);border:1px solid var(--line)}
+  .wr-phase.work{background:var(--amber);color:#241a05;border-color:var(--amber)}
+  .wr-phase.rest{background:var(--green);color:#0f1a0e;border-color:var(--green)}
+  .wr-clock{font-family:var(--mono);font-weight:800;font-size:30px;font-variant-numeric:tabular-nums}
+  .wr-btn{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:9px 14px;min-height:44px}
+  .wr-btn:active{background:var(--line-soft)}
+
+  /* action buttons */
+  .actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+  .abtn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:70px;border-radius:12px;border:1px solid var(--line);
+    text-decoration:none;color:var(--ink);font-weight:700;font-size:16px;text-align:center;padding:10px}
+  .abtn .ico{font-size:22px;line-height:1}
+  .abtn.report{background:#2a1410;border-color:var(--red);color:#ffd9d1}
+  .abtn.call{background:#10231a;border-color:var(--green);color:#cdeccd}
+  .abtn.disabled{opacity:.4;pointer-events:none}
+
+  /* today list */
+  details.today{margin-top:12px}
+  details.today>summary{list-style:none;cursor:pointer;padding:12px 15px;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    font-weight:700;display:flex;justify-content:space-between;align-items:center}
+  details.today>summary::-webkit-details-marker{display:none}
+  .chev{color:var(--muted);font-size:13px}
+  .sched-list{margin-top:8px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .sl-row{display:flex;gap:10px;padding:9px 13px;border-bottom:1px solid var(--line-soft);align-items:baseline}
+  .sl-row:last-child{border-bottom:none}
+  .sl-row.on{background:rgba(95,174,90,.14)}
+  .sl-row.done{opacity:.5}
+  .sl-row.cx{opacity:.5;text-decoration:line-through}
+  .sl-t{font-family:var(--mono);font-size:12px;color:var(--muted);min-width:82px;flex:none}
+  .sl-a{font-size:15px;flex:1}
+  .sl-l{font-size:12px;color:var(--olive-bright)}
+
+  /* setup / settings */
+  .overlay{position:fixed;inset:0;background:rgba(10,11,8,.94);display:flex;align-items:center;justify-content:center;padding:18px;z-index:50}
+  .sheet{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;max-width:460px;width:100%}
+  .sheet h1{font-size:19px;margin:0 0 4px} .sheet p{color:var(--muted);font-size:14px;margin:0 0 14px}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+  .field input,.field select{width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel-2);color:var(--ink);min-height:44px}
+  .primary{width:100%;min-height:48px;border-radius:10px;border:1px solid var(--olive-bright);background:var(--olive);color:#12140e;font-weight:800;font-size:16px;margin-top:4px}
+  .primary:active{background:var(--olive-bright)}
+  .linkbtn{background:none;border:none;color:var(--muted);text-decoration:underline;font-size:13px;padding:8px}
+  .foot{display:flex;justify-content:space-between;align-items:center;margin-top:16px;color:var(--muted);font-size:12px;font-family:var(--mono)}
+  .foot button{background:none;border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:7px 11px;min-height:40px}
+  .hide{display:none!important}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app" aria-live="polite">
+  <header>
+    <div>
+      <div class="h-name" id="hCamp">KYARNG YOUTH CAMP</div>
+      <div class="h-plt" id="hPlt">—</div>
+    </div>
+    <div class="h-right">
+      <div class="h-time mono" id="hTime">--:--</div>
+      <div class="h-stat"><span class="dot" id="hDot"></span><span id="hStat">connecting…</span></div>
+    </div>
+  </header>
+
+  <div class="card announce hide" id="annCard"><span class="ann-i">NOTICE</span><span id="annText"></span></div>
+
+  <div class="card">
+    <div class="now-hd"><span class="k">Right now</span><span class="pill now" id="nowPill">NOW</span></div>
+    <div class="now-act" id="nowAct">—</div>
+    <div class="now-loc" id="nowLoc"></div>
+    <div class="now-time" id="nowTime"></div>
+  </div>
+
+  <div class="card">
+    <div class="now-hd"><span class="k">Next up</span><span class="pill next">NEXT</span></div>
+    <div class="next-act" id="nextAct">—</div>
+    <div class="now-loc" id="nextLoc"></div>
+    <div class="now-time" id="nextTime"></div>
+  </div>
+
+  <div class="card heat">
+    <div class="heat-top heat-NA" id="heatTop">
+      <div>
+        <div class="heat-cat" id="heatCat">— set at TOC —</div>
+        <div class="heat-flagword" id="heatFlag"></div>
+      </div>
+      <div class="heat-wbgt"><span id="heatWbgt">--</span><small>°F WBGT</small></div>
+    </div>
+    <div class="heat-body">
+      <div class="g-row"><span class="g-k">Water</span><span class="g-v" id="heatWater">—</span></div>
+      <div class="g-row"><span class="g-k">Activity</span><span class="g-v" id="heatWork">—</span></div>
+      <div class="wr" id="wrBox">
+        <span class="wr-phase" id="wrPhase">READY</span>
+        <span class="wr-clock" id="wrClock">--:--</span>
+        <button class="wr-btn" id="wrBtn">Start work/rest</button>
+      </div>
+      <div class="g-v muted" id="wrRec" style="margin-top:8px;font-size:13px"></div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <a class="abtn report disabled" id="btnReport" target="_blank" rel="noopener"><span class="ico">📝</span>Report to TOC</a>
+    <a class="abtn call disabled" id="btnCall"><span class="ico">📞</span>Call TOC</a>
+  </div>
+
+  <details class="today">
+    <summary><span>Rest of today</span><span class="chev">tap to expand ▾</span></summary>
+    <div class="sched-list" id="schedList"></div>
+  </details>
+
+  <div class="foot">
+    <span id="updated">—</span>
+    <button id="btnSettings">Settings</button>
+  </div>
+</div>
+
+<!-- setup / settings overlay -->
+<div class="overlay hide" id="setup">
+  <div class="sheet">
+    <h1 id="setupTitle">PSG Field View</h1>
+    <p>Set your platoon and paste the camp sync link (ask the TOC for it). Your phone only <b>reads</b> the board — it can't change it.</p>
+    <div class="field">
+      <label>Your platoon</label>
+      <select id="setPlt"></select>
+    </div>
+    <div class="field">
+      <label>Camp sync link (from the TOC)</label>
+      <input id="setUrl" placeholder="https://script.google.com/macros/s/…/exec" inputmode="url" autocapitalize="off" autocorrect="off">
+    </div>
+    <button class="primary" id="setSave">Save & connect</button>
+    <div style="text-align:center"><button class="linkbtn" id="setCancel">Cancel</button></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id);};
+  var LS_URL="kyarng-psg-url", LS_PLT="kyarng-psg-platoon", LS_WR="kyarng-psg-wr";
+  var CAMP_TZ="America/Chicago";
+  var CAMP_DAYS=["Saturday","Sunday","Monday","Tuesday","Wednesday","Thursday","Friday"];
+  var WEEKDAY_IDX={Sat:0,Sun:1,Mon:2,Tue:3,Wed:4,Thu:5,Fri:6};
+  var PLATOONS=["Alpha","Bravo","Charlie","Delta","Echo","Foxtrot","Golf","Hotel"];
+
+  // U.S. Army heat categories (TB MED 507); work/rest + hourly water, kept conservative for youth.
+  var HEATCATS={
+    NA:   {cls:"heat-NA",    name:"— set WBGT —", flag:"",           work:"The TOC hasn't set a WBGT reading yet.", water:"—", wr:null, hydr:""},
+    BELOW:{cls:"heat-LOW",   name:"BELOW CAT 1",  flag:"Low risk",   work:"Normal activities. Keep water available.", water:"Drink on regular breaks.", wr:null, hydr:"about ½ qt/hr"},
+    C1:   {cls:"heat-GREEN", name:"CATEGORY 1",   flag:"Green flag", work:"Use discretion for intense or prolonged exertion.", water:"Water break about every 45 min.", wr:{work:40,rest:20}, hydr:"about ¾ qt/hr"},
+    C2:   {cls:"heat-YELLOW",name:"CATEGORY 2",   flag:"Yellow flag",work:"Limit strenuous activity; rest in shade between bouts.", water:"Water break about every 30 min.", wr:{work:30,rest:30}, hydr:"about ¾ qt/hr"},
+    C3:   {cls:"heat-RED",   name:"CATEGORY 3",   flag:"Red flag",   work:"Curtail strenuous activity; short bouts, mandatory shade rest.", water:"Water break about every 20–30 min.", wr:{work:30,rest:30}, hydr:"about 1 qt/hr"},
+    C4:   {cls:"heat-BLACK", name:"CATEGORY 4",   flag:"Black flag", work:"Suspend strenuous outdoor activity; move to shade or A/C.", water:"Continuous hydration; watch for heat illness.", wr:{work:20,rest:40}, hydr:"about 1 qt/hr"},
+    C5:   {cls:"heat-BLACK", name:"CATEGORY 5",   flag:"Black flag", work:"Suspend all outdoor physical activity; move to shade or A/C.", water:"Continuous hydration; active heat-illness watch.", wr:null, hydr:"about 1 qt/hr"}
+  };
+  function heatCat(wb){ wb=(wb==null||wb==="")?null:+wb;
+    if(wb==null||isNaN(wb)) return HEATCATS.NA;
+    if(wb>=90) return HEATCATS.C5; if(wb>=88) return HEATCATS.C4; if(wb>=85) return HEATCATS.C3;
+    if(wb>=82) return HEATCATS.C2; if(wb>=78) return HEATCATS.C1; return HEATCATS.BELOW; }
+
+  function pad(n){ n=+n; return (n<10?"0":"")+n; }
+  function campNow(){
+    var p={};
+    try{ new Intl.DateTimeFormat("en-US",{timeZone:CAMP_TZ,hour12:false,weekday:"short",hour:"2-digit",minute:"2-digit"})
+      .formatToParts(new Date()).forEach(function(x){ if(x.type!=="literal") p[x.type]=x.value; });
+    }catch(e){ var d=new Date(); return {h:d.getHours(),m:d.getMinutes(),dayIdx:(d.getDay()+1)%7}; }
+    return {h:parseInt(p.hour,10)%24, m:parseInt(p.minute,10), dayIdx:WEEKDAY_IDX[p.weekday]};
+  }
+  function nowMin(){ var c=campNow(); return c.h*60+c.m; }
+  function hm(s){ s=String(s); if(s.length===3) s="0"+s; if(s.length!==4) return null;
+    var h=+s.slice(0,2), mi=+s.slice(2,4); if(isNaN(h)||isNaN(mi)||h>23||mi>59) return null; return h*60+mi; }
+  function parseRange(t){ t=String(t||"").trim();
+    var m=t.match(/^(\d{3,4})\s*[-–]\s*(\d{3,4})$/);
+    if(m){ var s=hm(m[1]), e=hm(m[2]); if(s==null||e==null) return null; var end=e; if(end<s) end+=1440; return {start:s,end:end}; }
+    m=t.match(/^(\d{3,4})$/); if(m){ var s2=hm(m[1]); if(s2==null) return null; return {start:s2,end:null}; }
+    return null;
+  }
+  function to12(min){ var h=Math.floor(min/60)%24, mi=min%60; var ap=h<12?"a":"p"; var h12=h%12||12; return h12+":"+pad(mi)+ap; }
+
+  var state={ board:null, rev:-1, url:"", platoon:"", online:false };
+
+  // ---------- data pull (READ-ONLY) ----------
+  var pollTimer=null;
+  function connect(){
+    state.url=""; try{ state.url=localStorage.getItem(LS_URL)||""; }catch(e){}
+    try{ state.platoon=localStorage.getItem(LS_PLT)||""; }catch(e){}
+    if(!state.url||!state.platoon){ openSetup(true); return; }
+    render(); pull();
+    clearInterval(pollTimer); pollTimer=setInterval(pull,12000);
+  }
+  function pull(){
+    if(!state.url){ return; }
+    fetch(state.url,{method:"GET"}).then(function(r){return r.text();}).then(function(txt){
+      var env=null; try{ env=JSON.parse(txt); }catch(e){}
+      if(env && env.board){ state.board=env.board; state.rev=+(env._rev||0); state.online=true; }
+      else { state.online=true; state.board=state.board||null; }
+      render();
+    }).catch(function(){ state.online=false; setStatus(); });
+  }
+  function setStatus(){
+    var dot=$("hDot"), st=$("hStat");
+    if(state.online){ dot.className="dot on"; st.textContent="live"; }
+    else { dot.className="dot warn"; st.textContent="offline — retrying"; }
+  }
+
+  // ---------- schedule now/next ----------
+  function todayRows(){
+    var b=state.board; if(!b||!b.platoons) return [];
+    var plt=null; for(var i=0;i<b.platoons.length;i++){ if(b.platoons[i] && b.platoons[i].name===state.platoon){ plt=b.platoons[i]; break; } }
+    if(!plt){ // fall back to index by standard order
+      var ix=PLATOONS.indexOf(state.platoon); if(ix>=0 && b.platoons[ix]) plt=b.platoons[ix];
+    }
+    if(!plt||!plt.sched) return [];
+    var day=CAMP_DAYS[campNow().dayIdx]||CAMP_DAYS[0];
+    var rows=(plt.sched[day]||[]).map(function(r){ return {time:r.time,activity:r.activity,loc:r.loc,canceled:!!r.canceled,rng:parseRange(r.time)}; })
+      .filter(function(r){ return r.rng; });
+    rows.sort(function(a,b){ return a.rng.start-b.rng.start; });
+    // effective end = own end, else next start, else +60
+    for(var j=0;j<rows.length;j++){
+      var end=rows[j].rng.end;
+      if(end==null){ end=(j+1<rows.length)? rows[j+1].rng.start : rows[j].rng.start+60; }
+      rows[j].end=end;
+    }
+    return rows;
+  }
+  function nowNext(rows){
+    var now=nowMin(), cur=null, next=null;
+    for(var i=0;i<rows.length;i++){ var r=rows[i]; if(r.canceled) continue;
+      if(r.rng.start<=now && now<r.end){ cur=r; }
+    }
+    for(var k=0;k<rows.length;k++){ var r2=rows[k]; if(r2.canceled) continue;
+      if(r2.rng.start>now){ next=r2; break; }
+    }
+    if(!cur){ // between events: current = most recent past non-canceled
+      for(var m=rows.length-1;m>=0;m--){ if(!rows[m].canceled && rows[m].rng.start<=now){ cur=rows[m]; break; } }
+    }
+    return {cur:cur,next:next};
+  }
+
+  // ---------- render ----------
+  function render(){
+    var b=state.board;
+    $("hPlt").textContent=state.platoon||"—";
+    if(b&&b.campName) $("hCamp").textContent=String(b.campName).toUpperCase();
+    setStatus();
+
+    // announcement
+    var msg=b&&b.psgMsg?String(b.psgMsg).trim():"";
+    if(msg){ $("annText").textContent=msg; $("annCard").classList.remove("hide"); }
+    else $("annCard").classList.add("hide");
+
+    // now / next
+    var rows=todayRows(), nn=nowNext(rows);
+    if(!b||!b.platoons){ $("nowAct").textContent="Connect to see the schedule"; $("nowLoc").textContent=""; $("nowTime").textContent=""; }
+    else if(nn.cur){ $("nowAct").textContent=nn.cur.activity||"—"; $("nowLoc").textContent=nn.cur.loc||""; $("nowTime").textContent=fmtRange(nn.cur); }
+    else { $("nowAct").textContent="No activity right now"; $("nowLoc").textContent=""; $("nowTime").textContent=""; }
+    if(nn.next){ $("nextAct").textContent=nn.next.activity||"—"; $("nextLoc").textContent=nn.next.loc||""; $("nextTime").textContent=fmtRange(nn.next); }
+    else { $("nextAct").textContent=b&&b.platoons?"Nothing left today":"—"; $("nextLoc").textContent=""; $("nextTime").textContent=""; }
+
+    // heat
+    var cat=heatCat(b?b.wbgt:null);
+    $("heatTop").className="heat-top "+cat.cls;
+    $("heatCat").textContent=cat.name; $("heatFlag").textContent=cat.flag;
+    $("heatWbgt").textContent=(b&&b.wbgt!=null&&b.wbgt!=="")?Math.round(+b.wbgt):"--";
+    $("heatWater").textContent=cat.water; $("heatWork").textContent=cat.work;
+    $("wrRec").textContent = cat.wr ? ("Recommended: "+cat.wr.work+" min active / "+cat.wr.rest+" min rest · water "+cat.hydr)
+      : (cat===HEATCATS.C5?"Category 5 — suspend outdoor activity.":(cat===HEATCATS.NA?"":"No cycle needed — keep water available."));
+    if($("wrBtn")) $("wrBtn").style.display = cat.wr ? "" : "none";
+    if(!cat.wr && wr.running) wrStop();
+
+    // action buttons
+    var form=b&&b.psgFormUrl?String(b.psgFormUrl).trim():"";
+    var phone=b&&b.tocPhone?String(b.tocPhone).trim():"";
+    var rb=$("btnReport"); if(form){ rb.href=form; rb.classList.remove("disabled"); } else { rb.removeAttribute("href"); rb.classList.add("disabled"); }
+    var cb=$("btnCall"); if(phone){ cb.href="tel:"+phone.replace(/[^0-9+]/g,""); cb.classList.remove("disabled"); } else { cb.removeAttribute("href"); cb.classList.add("disabled"); }
+
+    // today list
+    var list=$("schedList"); list.innerHTML="";
+    if(rows.length===0){ list.innerHTML='<div class="sl-row"><span class="sl-a muted">No schedule for today yet.</span></div>'; }
+    else{ var now=nowMin();
+      rows.forEach(function(r){
+        var cls="sl-row"; if(r.canceled) cls+=" cx"; else if(r.rng.start<=now&&now<r.end) cls+=" on"; else if(r.end<=now) cls+=" done";
+        var d=document.createElement("div"); d.className=cls;
+        d.innerHTML='<span class="sl-t">'+esc(r.time)+'</span><span class="sl-a">'+esc(r.activity||"")+
+          (r.loc?' <span class="sl-l">· '+esc(r.loc)+'</span>':'')+'</span>';
+        list.appendChild(d);
+      });
+    }
+    var c=campNow(); $("hTime").textContent=pad(c.h)+":"+pad(c.m);
+    $("updated").textContent="updated "+pad(c.h)+":"+pad(c.m)+" CT";
+    renderWR();
+  }
+  function fmtRange(r){ if(!r||!r.rng) return ""; return to12(r.rng.start)+(r.rng.end!=null&&r.end!==r.rng.start?" – "+to12(r.end):""); }
+  function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+  // ---------- work/rest timer (local to this phone) ----------
+  var wr={running:false,phase:"work",endsAt:0,timer:null};
+  function wrCyc(){ return heatCat(state.board?state.board.wbgt:null).wr; }
+  function wrSave(){ try{ localStorage.setItem(LS_WR, JSON.stringify({running:wr.running,phase:wr.phase,endsAt:wr.endsAt})); }catch(e){} }
+  function wrRestore(){ try{ var o=JSON.parse(localStorage.getItem(LS_WR)||"null"); if(o&&o.running&&o.endsAt>Date.now()){ wr.running=true; wr.phase=o.phase==="rest"?"rest":"work"; wr.endsAt=o.endsAt; } }catch(e){} }
+  function beep(){ try{ var AC=window.AudioContext||window.webkitAudioContext; if(!AC) return; var c=new AC(); var o=c.createOscillator(),g=c.createGain();
+    o.type="sine";o.frequency.value=880;o.connect(g);g.connect(c.destination); g.gain.setValueAtTime(0.001,c.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.25,c.currentTime+0.02); g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.5);
+    o.start();o.stop(c.currentTime+0.52); setTimeout(function(){try{c.close();}catch(e){}},800); }catch(e){} }
+  function wrStart(){ var cy=wrCyc(); if(!cy) return; wr.running=true; wr.phase="work"; wr.endsAt=Date.now()+cy.work*60000; wrSave(); beep(); wrTick(); }
+  function wrStop(){ wr.running=false; wr.endsAt=0; clearTimeout(wr.timer); wr.timer=null; wrSave(); renderWR(); }
+  function wrAdvance(){ var cy=wrCyc(); if(!cy){ wrStop(); return; } wr.phase=wr.phase==="work"?"rest":"work"; wr.endsAt=Date.now()+(wr.phase==="work"?cy.work:cy.rest)*60000; wrSave(); beep(); }
+  function wrTick(){ clearTimeout(wr.timer); wr.timer=null; if(wr.running&&Date.now()>=wr.endsAt) wrAdvance(); renderWR(); if(wr.running) wr.timer=setTimeout(wrTick,250); }
+  function renderWR(){
+    var ph=$("wrPhase"), ck=$("wrClock"), bt=$("wrBtn"); if(!ph) return;
+    if(wr.running){
+      var s=Math.max(0,Math.round((wr.endsAt-Date.now())/1000));
+      ck.textContent=pad(Math.floor(s/60))+":"+pad(s%60);
+      ph.textContent=wr.phase==="work"?"ACTIVE":"REST"; ph.className="wr-phase "+wr.phase;
+      bt.textContent="Stop";
+    }else{ ck.textContent="--:--"; ph.textContent="READY"; ph.className="wr-phase"; bt.textContent="Start work/rest"; }
+  }
+
+  // ---------- setup / settings ----------
+  function openSetup(first){
+    var sel=$("setPlt"); sel.innerHTML="";
+    var names=(state.board&&state.board.platoons&&state.board.platoons.length)? state.board.platoons.map(function(p){return p.name;}) : PLATOONS;
+    names.forEach(function(n){ var o=document.createElement("option"); o.textContent=n; o.value=n; if(n===state.platoon) o.selected=true; sel.appendChild(o); });
+    $("setUrl").value=state.url||"";
+    $("setupTitle").textContent=first?"PSG Field View — setup":"Settings";
+    $("setCancel").style.display=first?"none":"";
+    $("setup").classList.remove("hide");
+  }
+  function closeSetup(){ $("setup").classList.add("hide"); }
+  $("setSave").addEventListener("click",function(){
+    var url=$("setUrl").value.trim(), plt=$("setPlt").value;
+    if(!/^https?:\/\/.+/.test(url)){ $("setUrl").focus(); $("setUrl").style.borderColor="var(--red)"; return; }
+    try{ localStorage.setItem(LS_URL,url); localStorage.setItem(LS_PLT,plt); }catch(e){}
+    closeSetup(); connect();
+  });
+  $("setCancel").addEventListener("click",closeSetup);
+  $("btnSettings").addEventListener("click",function(){ openSetup(false); });
+  $("wrBtn").addEventListener("click",function(){ if(wr.running) wrStop(); else wrStart(); });
+
+  // clock tick
+  setInterval(function(){ var c=campNow(); $("hTime").textContent=pad(c.h)+":"+pad(c.m); if(wr.running) renderWR(); },1000);
+
+  wrRestore();
+  connect();
+})();
+</script>
+</body>
+</html>

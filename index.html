@@ -702,6 +702,22 @@
     </div>
   </div>
 
+  <!-- FIELD / PSG BROADCAST -->
+  <div class="panel" id="psgPanel">
+    <div class="panel-head"><h2>Field / PSG Broadcast</h2><span class="hint">shows on the PSG phone page</span></div>
+    <div class="panel-body">
+      <div class="panel-sub">Set this up once for the Platoon Sergeants&rsquo; phone page (<b>psg.html</b>). Whatever you type here appears on every PSG phone that&rsquo;s connected to this board. The phones are <b>read-only</b> &mdash; they can see the schedule, heat flag, and this announcement, but can&rsquo;t change the board.</div>
+      <div class="meta" style="margin-bottom:10px">
+        <label>Announcement to all platoons</label>
+        <input id="psgMsg" placeholder="e.g. All platoons return to Shaver for lunch, moved to 1230">
+      </div>
+      <div class="feed-row">
+        <input id="psgFormUrl" placeholder="Incident report form link (Google Form)">
+        <input id="tocPhone" placeholder="TOC phone number" style="max-width:180px">
+      </div>
+    </div>
+  </div>
+
   <!-- LIVE SYNC -->
   <div class="panel" id="syncPanel">
     <div class="panel-head"><h2>Live Sync</h2><span class="hint">optional &middot; shared board</span></div>
@@ -764,6 +780,7 @@
     wbgt:null, wbgtAuto:true,
     volLabel:"Volunteers", vol:0,
     gsaLabel:"GSAs",
+    psgMsg:"", psgFormUrl:"", tocPhone:"",
     perstat:[
       {label:"Cadre / Staff", asg:0, pres:0},
       {label:"Youth / Campers", asg:0, pres:0},
@@ -845,6 +862,9 @@
     if($("heatAuto")) $("heatAuto").checked=!!state.wbgtAuto;
     if($("feedUrl")) $("feedUrl").value=state.feedUrl||"";
     if($("feedAuto")) $("feedAuto").checked=!!state.feedAuto;
+    if($("psgMsg")) $("psgMsg").value=state.psgMsg||"";
+    if($("psgFormUrl")) $("psgFormUrl").value=state.psgFormUrl||"";
+    if($("tocPhone")) $("tocPhone").value=state.tocPhone||"";
     const _st=$("soTitle"); if(_st) _st.textContent=state.campName||"";
   }
 
@@ -862,7 +882,8 @@
     wbgt:["wbgt","wbgtAuto"],
     feed:["feedUrl","feedAuto"],
     platoons:["platoons"],
-    misc:["siCheck","perstat"]
+    misc:["siCheck","perstat"],
+    psg:["psgMsg","psgFormUrl","tocPhone"]
   };
   let syncSeq=0, syncBase={};   // syncBase = last board the server gave us; we diff against it to tag our own edits
   function newId(){ return "i"+Date.now().toString(36)+"-"+(syncSeq++).toString(36)+Math.random().toString(36).slice(2,6); }
@@ -1652,6 +1673,7 @@
   const bind=(id,key,num)=>{ $(id).addEventListener("input",e=>{ state[key]=num?(+e.target.value||0):e.target.value; if(num||key.indexOf("Label")>-1) renderTiles(); save(); }); };
   bind("campName","campName"); bind("mDay","day"); bind("mOic","oic"); bind("mNco","nco"); bind("mWx","wx");
   bind("lblGsa","gsaLabel");
+  bind("psgMsg","psgMsg"); bind("psgFormUrl","psgFormUrl"); bind("tocPhone","tocPhone");
  
   // delegated table edits
   document.body.addEventListener("input",e=>{
