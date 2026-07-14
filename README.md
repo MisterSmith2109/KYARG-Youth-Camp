@@ -97,7 +97,9 @@ from a phone, not just a laptop or wall display.
   for Platoon Sergeants out with the campers. It connects to the same live board
   (via the sync link) and shows just what they need: their platoon's **Now / Next**
   activity and location, the **heat flag + water/work-rest guidance** (with an
-  optional work/rest timer), **Call TOC**, and three quick things the phone can
+  optional work/rest timer), a **Notes** button (a private, on-phone notepad for
+  AAR comments and reminders — timestamped, saved offline, with *copy all* to
+  paste into an AAR later), and three quick things the phone can
   send straight to the TOC board. The **Lifeline (HQ)** phone additionally gets a
   **platoon picker** — tap any platoon to browse its Now / Next and rest-of-day
   schedule (their own pre-event alerts still follow Lifeline); regular platoons
