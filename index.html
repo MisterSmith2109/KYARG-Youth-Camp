@@ -792,6 +792,14 @@
           <button class="btn2" id="psgCopyLink">Copy PSG link</button>
         </div>
       </div>
+      <div class="psg-share">
+        <div class="psg-qr" id="medicQr"></div>
+        <div class="psg-share-info">
+          <div class="psg-share-h">Hand this to the medics</div>
+          <div class="panel-sub" id="medicLinkNote" style="margin:4px 0 8px">Opens the <b>medic dashboard</b> (<b>medic.html</b>) with the sync link filled in. Medic requests carry no camper medical details.</div>
+          <button class="btn2" id="medicCopyLink">Copy Medic link</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -3375,6 +3383,7 @@ var qrcode = function() {
     try{ return new URL("psg.html", location.href).href+"?sync="+encodeURIComponent(u); }catch(e){ return ""; }
   }
   function renderPsgShare(){
+    renderMedicShare(); // keep the medic share block in lockstep, in every branch
     const box=$("psgQr"), note=$("psgLinkNote"), btn=$("psgCopyLink"); if(!box) return;
     const link=psgShareLink();
     if(!link){
@@ -3384,6 +3393,25 @@ var qrcode = function() {
       return;
     }
     if(note) note.textContent="They scan the code or tap the link, then pick their platoon — the sync link fills in automatically.";
+    if(btn) btn.disabled=false;
+    try{ const qr=qrcode(0,"L"); qr.addData(link); qr.make(); box.innerHTML=qr.createSvgTag(4,2); }
+    catch(e){ box.innerHTML=""; }
+  }
+  function medicShareLink(){
+    let u=""; try{ u=localStorage.getItem(SYNC_KEY)||syncUrl||""; }catch(e){ u=syncUrl||""; }
+    if(!u) return "";
+    try{ return new URL("medic.html", location.href).href+"?sync="+encodeURIComponent(u); }catch(e){ return ""; }
+  }
+  function renderMedicShare(){
+    const box=$("medicQr"), note=$("medicLinkNote"), btn=$("medicCopyLink"); if(!box) return;
+    const link=medicShareLink();
+    if(!link){
+      box.innerHTML="";
+      if(note) note.textContent="Connect Live Sync (below) first — then a scannable code and link for the medics appear here.";
+      if(btn) btn.disabled=true;
+      return;
+    }
+    if(note) note.innerHTML="Opens the <b>medic dashboard</b> with the sync link filled in. Medic requests carry no camper medical details.";
     if(btn) btn.disabled=false;
     try{ const qr=qrcode(0,"L"); qr.addData(link); qr.make(); box.innerHTML=qr.createSvgTag(4,2); }
     catch(e){ box.innerHTML=""; }
@@ -4145,6 +4173,12 @@ var qrcode = function() {
     const done=()=>{ const b=$("psgCopyLink"), t=b.textContent; b.textContent="Copied ✓"; setTimeout(()=>{ b.textContent=t; },1500); };
     if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(link).then(done).catch(()=>{ window.prompt("Copy this PSG link:",link); }); }
     else window.prompt("Copy this PSG link:",link);
+  });
+  $("medicCopyLink").addEventListener("click",()=>{
+    const link=medicShareLink(); if(!link) return;
+    const done=()=>{ const b=$("medicCopyLink"), t=b.textContent; b.textContent="Copied ✓"; setTimeout(()=>{ b.textContent=t; },1500); };
+    if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(link).then(done).catch(()=>{ window.prompt("Copy this Medic link:",link); }); }
+    else window.prompt("Copy this Medic link:",link);
   });
  
   // delegated table edits
