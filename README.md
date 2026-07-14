@@ -157,7 +157,9 @@ from a phone, not just a laptop or wall display.
   announcement and TOC phone number in the **Field / PSG Broadcast** panel on the
   main board, which also shows a **QR code and "Copy PSG link"** — a PSG scans the
   code or taps the link and the page opens with the sync link already filled in;
-  they just pick their platoon. (This broadcast channel is synced, so it needs the
+  they just pick their platoon. The same panel also has a **"Copy Medic link" +
+  QR** that opens the medic dashboard (`medic.html`) with the sync link filled in.
+  (This broadcast channel is synced, so it needs the
   updated `sync/Code.gs` deployed — see [SYNC-SETUP.md](SYNC-SETUP.md).)
 
 ## Saving & moving the board between computers
