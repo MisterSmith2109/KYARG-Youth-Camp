@@ -107,14 +107,16 @@ from a phone, not just a laptop or wall display.
     / Heat Casualties panels, tagged with the platoon. The medic's incident form
     isn't needed for the PSG/APSG.
 
-  After sending a supply request the PSG sees it in a **My supply requests** list
-  on their phone — their own confirmation of what they sent — with a live status
-  (**Pending → Sent → Open → Filled**) as the TOC works it. Everything the phone
-  sends is **queued and auto-retried**, so a request or report made with poor
-  signal isn't lost — it shows as *Pending* and goes out as soon as signal
-  returns (the header shows how many are waiting). The page also **caches the last
-  board**, so the schedule, heat flag, and the send buttons still work with no
-  signal. The phones are read-only apart from these sends — a phone can only *add*
+  Below the buttons a **"{platoon} — sent to TOC"** list shows everything that
+  platoon has sent — supply requests **and** reports — read from the shared board,
+  so the **PSG and APSG both see the same list** even when they send from
+  different phones. Each row is tagged (SUPPLY / INCIDENT / HEAT) with a live
+  status: supply reads **Pending → Open → Filled** as the TOC works it, reports
+  read **Pending → Logged**. Everything the phone sends is **queued and
+  auto-retried**, so a request or report made with poor signal isn't lost — it
+  shows as *Pending* and goes out as soon as signal returns (the header shows how
+  many are waiting). The page also **caches the last board**, so the schedule,
+  heat flag, and the send buttons still work with no signal. The phones are read-only apart from these sends — a phone can only *add*
   a request or report, never change anything else on the board. Set the
   announcement and TOC phone number in the **Field / PSG Broadcast** panel on the
   main board, which also shows a **QR code and "Copy PSG link"** — a PSG scans the
