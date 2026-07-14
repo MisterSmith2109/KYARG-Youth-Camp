@@ -449,7 +449,7 @@
   var HQ_NAMES=["lifeline","hq"]; // platoon names that unlock the platoon schedule picker
   // Roster "group" values a renamed platoon should also match (lowercase). When a platoon renames
   // itself but campers are still grouped under the old letter on the TOC roster, map new -> old here.
-  var PLATOON_ALIASES={ "g-flex":["golf"] };
+  var PLATOON_ALIASES={ "g-flex":["golf"], "pink power ranger":["pink power rangers"] };
   function platoonMatchNames(plt){
     var k=String(plt||"").trim().toLowerCase(), out=[k];
     if(PLATOON_ALIASES[k]) PLATOON_ALIASES[k].forEach(function(x){ out.push(String(x).trim().toLowerCase()); });
