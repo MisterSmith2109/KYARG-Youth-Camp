@@ -128,6 +128,24 @@ from a phone, not just a laptop or wall display.
   shows as *Pending* and goes out as soon as signal returns (the header shows how
   many are waiting). The page also **caches the last board**, so the schedule,
   heat flag, and the send buttons still work with no signal.
+- **Medic Dashboard (`medic.html`)** *(new)* — a phone/tablet page for the medic
+  team, connected to the same live board. The PSG page's **Request Medic** button
+  sends a low-detail dispatch — location, platoon, urgency (Routine / Priority /
+  **Emergency**), and category (Injury / Heat / Illness / Other) — that lands on
+  the medic dashboard and **pages every medic device** (chime, vibration, banner,
+  optional lock-screen push). Medics work each request **New → Acknowledged →
+  En route → Resolved**, and that status flows back to the requesting PSG's list.
+  The dashboard also shows the **heat flag**, the **Incident Report Form** button,
+  a one-tap **Call 911**, and a **medic-posting plan** the **Lead Medic** can edit
+  (where medics are stationed through the week). A private, on-device **Encounter
+  Log** holds the medic's working notes.
+  - **By design it carries no camper medical information (HIPAA-conscious).** The
+    dispatch is operational only — no names or clinical detail on the shared board.
+    The encounter log is **local to the device**, never synced. Camper medical
+    profiles, medication authorizations, and treatment records belong in the camp's
+    official medical records, not this app.
+  - Requests and postings are new synced lists, so this needs the updated
+    **`sync/Code.gs` deployed** — see [SYNC-SETUP.md](SYNC-SETUP.md).
 
   A **10-minute heads-up** fires before each of the platoon's activities: an
   in-app banner plus a chime and vibration (works whenever the page is open),

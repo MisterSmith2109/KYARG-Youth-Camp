@@ -40,7 +40,7 @@ var SECTION_FIELDS = {
   psg:      ['psgMsg', 'psgFormUrl', 'tocPhone']
 };
 // Lists that merge per record (each record has an id + _m modified time).
-var LIST_KEYS = ['roster', 'incidents', 'sensitive', 'gsas', 'heatCas', 'supplyRequests'];
+var LIST_KEYS = ['roster', 'incidents', 'sensitive', 'gsas', 'heatCas', 'supplyRequests', 'medicRequests', 'medicPlan'];
 
 function unionArr(a, b) {
   var seen = {}, out = [];

@@ -94,6 +94,7 @@
   .abtn.report{background:#2a1410;border-color:var(--red);color:#ffd9d1}
   .abtn.call{background:#10231a;border-color:var(--green);color:#cdeccd}
   .abtn.notes{background:#231e10;border-color:var(--amber);color:#f0d9a6}
+  .abtn.medic{grid-column:1/-1;background:#2a1008;border-color:var(--red);color:#ffcaba}
   .abtn.supply{grid-column:1/-1;background:#16202b;border-color:#5a7d8c;color:#cfe3ef}
   .abtn.roster{background:#1f1a2b;border-color:#8a76a8;color:#dccff0}
   .abtn.docs{background:#1a2118;border-color:var(--olive);color:var(--olive-bright)}
@@ -138,6 +139,7 @@
   .mr-tag.supply{background:#16202b;color:#9fc4d8;border:1px solid #3a5563}
   .mr-tag.incident{background:#2a1410;color:#e6a99c;border:1px solid #5a352e}
   .mr-tag.heat{background:#2a2205;color:var(--amber);border:1px solid #5a4a1a}
+  .mr-tag.medic{background:#2a1008;color:#ffcaba;border:1px solid #5a352e}
   /* report sheet: incident / heat casualty */
   .seg{display:flex;gap:6px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:4px;margin-bottom:14px}
   .seg-b{flex:1;background:none;border:none;color:var(--muted);font-weight:700;padding:9px 8px;border-radius:7px;min-height:40px}
@@ -256,6 +258,7 @@
   <div class="actions">
     <button class="abtn report" id="btnReport"><span class="ico">📝</span>Report to TOC</button>
     <button class="abtn notes" id="btnNotes"><span class="ico">🗒️</span>Notes</button>
+    <button class="abtn medic" id="btnMedic"><span class="ico">🚑</span>Request Medic</button>
     <button class="abtn supply" id="btnSupply"><span class="ico">📦</span>Supply Request</button>
     <button class="abtn roster" id="btnRoster"><span class="ico">👥</span>Platoon Roster</button>
     <button class="abtn docs" id="btnDocs"><span class="ico">📁</span>Documents</button>
@@ -361,6 +364,33 @@
 
     <button class="primary" id="repSend">Send to TOC</button>
     <div style="text-align:center"><button class="linkbtn" id="repCancel">Cancel</button></div>
+  </div>
+</div>
+
+<!-- request medic sheet -->
+<div class="overlay hide" id="medic">
+  <div class="sheet">
+    <h1>Request Medic</h1>
+    <p>From <b id="medPlt">—</b>. Goes to the medic team. Keep it operational — <b>no camper names or medical details</b> on this channel; give those to the medic in person.</p>
+    <div class="hs-warn hide" id="med911">EMERGENCY — call 911 / camp medical now. This request does not call anyone.</div>
+    <div class="field">
+      <label>Urgency</label>
+      <select id="medUrg"><option>Routine</option><option>Priority</option><option>Emergency</option></select>
+    </div>
+    <div class="field">
+      <label>What kind</label>
+      <select id="medCat"><option>Injury</option><option>Heat</option><option>Illness</option><option>Other</option></select>
+    </div>
+    <div class="field">
+      <label>Where</label>
+      <input id="medLoc" placeholder="e.g. archery range">
+    </div>
+    <div class="field">
+      <label>What you need / what you see (optional)</label>
+      <input id="medNote" placeholder="e.g. camper down, conscious, need medic">
+    </div>
+    <button class="primary" id="medSend">Send to medic</button>
+    <div style="text-align:center"><button class="linkbtn" id="medCancel">Cancel</button></div>
   </div>
 </div>
 
@@ -762,6 +792,10 @@
       title:(r.type||"Incident"), sub:stripTag(r.remarks,plt), urgent:false, status:["logged","LOGGED"] }; }
   function heatView(r,plt){ var nm=stripName(r.name,plt); return { kind:"heat", tag:"HEAT", id:r.id, when:r._m||0, time:r.time,
       title:(nm?nm+" — ":"")+(r.type||"Heat casualty"), sub:r.action||"", urgent:(r.type==="Heat stroke"), status:["logged","LOGGED"] }; }
+  function medicView(r){ var s=String(r.status||"New"), sl=s.toLowerCase();
+    var cls = sl==="resolved"?"filled" : sl==="new"?"open" : "logged"; // New=amber, en route/ack=olive, resolved=green
+    return { kind:"medic", tag:"MEDIC", id:r.id, when:r._m||0, time:fmtHm(r.time),
+      title:(r.category||"Medical")+(r.location?" · "+r.location:""), sub:r.note||"", urgent:(r.urgency==="Emergency"), status:[cls, s.toUpperCase()] }; }
   function platoonFeed(){
     var b=state.board, plt=state.platoon, out=[], have={}, pend=outboxIds();
     function tagPending(v){ if(pend[v.id]) v.status=["pending","PENDING"]; return v; } // still queued -> PENDING
@@ -769,11 +803,12 @@
       (b.supplyRequests||[]).forEach(function(r){ if(r&&r.id!=null&&r.platoon===plt){ out.push(tagPending(supplyView(r))); have[r.id]=1; } });
       (b.incidents||[]).forEach(function(r){ if(r&&r.id!=null&&r.platoon===plt){ out.push(tagPending(incidentView(r,plt))); have[r.id]=1; } });
       (b.heatCas||[]).forEach(function(r){ if(r&&r.id!=null&&r.platoon===plt){ out.push(tagPending(heatView(r,plt))); have[r.id]=1; } });
+      (b.medicRequests||[]).forEach(function(r){ if(r&&r.id!=null&&r.platoon===plt){ out.push(tagPending(medicView(r))); have[r.id]=1; } });
     }
     // safety net: queued items not (yet) reflected in the board copy — show them as PENDING
     loadOutbox().forEach(function(x){
       if(!x||have[x.id]||!x.rec||(x.rec.platoon&&x.rec.platoon!==plt)) return;
-      var v = x.kind==="incident"?incidentView(x.rec,plt) : x.kind==="heat"?heatView(x.rec,plt) : supplyView(x.rec);
+      var v = x.kind==="incident"?incidentView(x.rec,plt) : x.kind==="heat"?heatView(x.rec,plt) : x.kind==="medic"?medicView(x.rec) : supplyView(x.rec);
       v.status=["pending","PENDING"]; out.push(v);
     });
     out.sort(function(a,b){ return (b.when||0)-(a.when||0); }); // newest first
@@ -884,6 +919,35 @@
   $("btnReport").addEventListener("click",openReport);
   $("repCancel").addEventListener("click",closeReport);
   $("repSend").addEventListener("click",sendReport);
+
+  // ---------- request medic (routes to the medic dashboard; low-PHI dispatch only) ----------
+  function openMedic(){
+    if(!state.url){ toast("Set up sync first — tap Settings.",true); return; }
+    $("medPlt").textContent=state.platoon||"your platoon";
+    // prefill location from the current activity if we have one
+    var rows=todayRows(), nn=rows.length?nowNext(rows):{cur:null};
+    $("medLoc").value=(nn.cur&&nn.cur.loc)?nn.cur.loc:"";
+    $("medUrg").value="Routine"; $("medCat").value="Injury"; $("medNote").value="";
+    $("med911").classList.add("hide"); $("medLoc").style.borderColor="";
+    $("medic").classList.remove("hide");
+  }
+  function closeMedic(){ $("medic").classList.add("hide"); }
+  function sendMedic(){
+    if(!state.url){ toast("Not connected — can't send.",true); return; }
+    if(!state.board){ toast("Still loading the board — try again in a moment.",true); return; }
+    var now=Date.now(), c=campNow();
+    var rec={ id:"md"+now.toString(36)+Math.random().toString(36).slice(2,6),
+      platoon:state.platoon||"", location:$("medLoc").value.trim(), urgency:$("medUrg").value||"Routine",
+      category:$("medCat").value||"Injury", note:$("medNote").value.trim(),
+      status:"New", time:pad(c.h)+pad(c.m), _m:now };
+    var board=snapshotWith("medicRequests", rec); state.board=board;
+    queueSend(board, rec, "medic", "Medic request");
+    closeMedic(); toast(rec.urgency==="Emergency"?"Medic paged — call 911 if life-threatening":"Sent to medic ✓");
+  }
+  $("btnMedic").addEventListener("click",openMedic);
+  $("medCancel").addEventListener("click",closeMedic);
+  $("medSend").addEventListener("click",sendMedic);
+  $("medUrg").addEventListener("change",function(){ $("med911").classList.toggle("hide", this.value!=="Emergency"); });
   $("repTabInc").addEventListener("click",function(){ setReportMode("inc"); });
   $("repTabHeat").addEventListener("click",function(){ setReportMode("heat"); });
   $("repHeatType").addEventListener("change",function(){ $("repHsWarn").classList.toggle("hide", this.value!=="Heat stroke"); });
