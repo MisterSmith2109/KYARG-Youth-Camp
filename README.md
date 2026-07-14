@@ -70,7 +70,11 @@ it works, online or offline.
   with the clock** — each event reads Upcoming, then Now, then Done as its time
   passes (the current day of the week runs live; past days read Done, future
   days Upcoming). Rename, add, and remove platoons; edit any activity. On a fresh
-  board it opens to today's day of the week.
+  board it opens to today's day of the week. **Fill from shared events** (on a
+  platoon's controls) populates that platoon's whole week with the events the
+  other platoons all do at the same time — flag formations, meals, wake-up,
+  lights out — handy for an **HQ / staff platoon** that mirrors the camp-wide
+  schedule.
 - **Incident Report Log** — one row per report. Log incidents by hand, or
   **auto-import** them from a Google Form: paste the responses sheet's
   *published CSV* link and new submissions drop in automatically (deduped;

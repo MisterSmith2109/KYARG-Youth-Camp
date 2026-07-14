@@ -600,6 +600,7 @@
         <input id="ptName" class="pt-name-input" placeholder="Platoon name" aria-label="Platoon name">
         <button class="btn2" id="ptAdd">+ Platoon</button>
         <button class="btn2" id="ptDel">Remove platoon</button>
+        <button class="btn2" id="ptShared" title="Fill this platoon's whole week with the events the other platoons all do at the same time — flag formations, meals, wake-up, lights out, etc. Good for an HQ/staff platoon.">Fill from shared events</button>
       </div>
       <div class="tbl-scroll" id="schTableWrap">
         <table>
@@ -3891,6 +3892,41 @@ var qrcode = function() {
     if(!Array.isArray(cp.sched[d])) cp.sched[d]=[];
     return cp.sched[d];
   }
+  // Build a week from the events the OTHER platoons all do at the same time (same time + activity
+  // shared across at least half of them): flag formations, meals, wake-up, lights out, etc.
+  // Used to fill an HQ/staff platoon that mirrors the camp-wide synchronized events.
+  function mostCommonKey(counts){ let best="",bn=-1; for(const k in counts){ if(counts[k]>bn){ bn=counts[k]; best=k; } } return best; }
+  function buildSharedSchedule(targetIdx){
+    const plats=state.platoons||[];
+    const others=plats.filter((p,i)=>i!==targetIdx);
+    const threshold=Math.max(2, Math.ceil(others.length/2));
+    const week={};
+    CAMP_DAYS.forEach(day=>{
+      const groups={};
+      others.forEach(p=>{
+        const rows=(p&&p.sched&&p.sched[day])||[];
+        const seen={};
+        rows.forEach(r=>{
+          const time=String(r.time||"").trim(), act=String(r.activity||"").trim();
+          if(!time||!act) return;
+          const norm=act.toLowerCase().replace(/\*+$/,"").replace(/\s+/g," ").trim();
+          if(norm==="travel") return; // bare movement filler — not an HQ-relevant event
+          const key=time+"|"+norm;
+          if(seen[key]) return; seen[key]=1;            // count each platoon at most once per event
+          let g=groups[key]; if(!g){ g=groups[key]={n:0,time:time,texts:{},locs:{}}; }
+          g.n++; g.texts[act]=(g.texts[act]||0)+1;
+          const loc=String(r.loc||"").trim(); if(loc) g.locs[loc]=(g.locs[loc]||0)+1;
+        });
+      });
+      const out=[];
+      for(const key in groups){ const g=groups[key];
+        if(g.n>=threshold) out.push({time:g.time, activity:mostCommonKey(g.texts), loc:mostCommonKey(g.locs), status:"Upcoming"});
+      }
+      out.sort((a,b)=>{ const ra=parseTimeRange(a.time), rb=parseTimeRange(b.time); return (ra?ra.start:9999)-(rb?rb.start:9999); });
+      week[day]=out;
+    });
+    return week;
+  }
   function renderDtabs(){
     const row=$("dtabRow"); if(!row) return;
     row.innerHTML="";
@@ -4192,6 +4228,25 @@ var qrcode = function() {
   });
   // Switching platoons/days cancels a pending delete confirmation.
   $("ptabRow").addEventListener("click",()=>{ if(ptDelArmed) resetPtDel(); });
+
+  // Fill the current platoon's whole week from the events the other platoons share (two-click confirm).
+  let ptShArmed=false, ptShTimer=null;
+  function resetPtSh(){ ptShArmed=false; clearTimeout(ptShTimer); const b=$("ptShared"); if(b){ b.textContent="Fill from shared events"; b.classList.remove("btn2-armed"); } }
+  $("ptShared").addEventListener("click",()=>{
+    const plats=state.platoons||[];
+    const idx=state.activePlatoon;
+    if(idx<0){ return; }
+    if(plats.length<2){ const b=$("ptShared"); b.textContent="Need other platoons"; setTimeout(resetPtSh,1600); return; }
+    if(!ptShArmed){
+      ptShArmed=true;
+      const b=$("ptShared"); b.textContent="Click again — replaces all 7 days"; b.classList.add("btn2-armed");
+      clearTimeout(ptShTimer); ptShTimer=setTimeout(resetPtSh,3500);
+      return;
+    }
+    resetPtSh();
+    plats[idx].sched=buildSharedSchedule(idx);
+    renderSchedule(); save();
+  });
   $("dtabRow").addEventListener("click",()=>{ if(ptDelArmed) resetPtDel(); });
 
   // heat / WBGT controls
