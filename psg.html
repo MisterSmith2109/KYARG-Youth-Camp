@@ -447,6 +447,14 @@
   var PLATOONS=["Alpha","Bravo","Charlie","Delta","Echo","Foxtrot","Golf","Hotel"];
   // The Lifeline (HQ) dashboard can browse every platoon's schedule; regular platoons see only their own.
   var HQ_NAMES=["lifeline","hq"]; // platoon names that unlock the platoon schedule picker
+  // Roster "group" values a renamed platoon should also match (lowercase). When a platoon renames
+  // itself but campers are still grouped under the old letter on the TOC roster, map new -> old here.
+  var PLATOON_ALIASES={ "g-flex":["golf"] };
+  function platoonMatchNames(plt){
+    var k=String(plt||"").trim().toLowerCase(), out=[k];
+    if(PLATOON_ALIASES[k]) PLATOON_ALIASES[k].forEach(function(x){ out.push(String(x).trim().toLowerCase()); });
+    return out;
+  }
 
   // U.S. Army heat categories (TB MED 507); work/rest + hourly water, kept conservative for youth.
   var HEATCATS={
@@ -1045,7 +1053,7 @@
   function belongsHere(r, myPlt, iAmHQ){
     var assigned = isLeadRole(r.role) ? String(r.group||"").trim() : "__HQ__"; // non lead roles -> HQ/Lifeline
     if(iAmHQ){ return assigned==="__HQ__" || HQ_NAMES.indexOf(assigned.toLowerCase())>=0; }
-    return assigned.toLowerCase()===String(myPlt||"").trim().toLowerCase();
+    return platoonMatchNames(myPlt).indexOf(assigned.toLowerCase())>=0; // includes renamed-platoon aliases
   }
   function renderPltRoster(){
     var list=$("rosList"), sub=$("rosSub"); if(!list) return;
