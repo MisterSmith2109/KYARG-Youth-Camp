@@ -1,0 +1,7 @@
+{
+  "documents": [
+    { "title": "Camp Loucon Map", "file": "loucon-map.pdf", "kind": "Map" },
+    { "title": "Running Cadences", "file": "cadences.pdf", "kind": "Cadences" },
+    { "title": "Emergency & Contingency Plan (2026)", "file": "emergency-contingency-plan.pdf", "kind": "Plan" }
+  ]
+}

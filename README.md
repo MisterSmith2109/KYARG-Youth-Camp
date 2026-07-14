@@ -99,8 +99,10 @@ from a phone, not just a laptop or wall display.
   activity and location, the **heat flag + water/work-rest guidance** (with an
   optional work/rest timer), a **Notes** button (a private, on-phone notepad for
   AAR comments and reminders — timestamped, saved offline, with *copy all* to
-  paste into an AAR later), and three quick things the phone can
-  send straight to the TOC board. The **Lifeline (HQ)** phone additionally gets a
+  paste into an AAR later), a **Documents** button (tap to open reference files —
+  camp map, cadences, emergency/contingency plan — served from the project's
+  `docs/` folder and listed from `docs/manifest.json`), and three quick things
+  the phone can send straight to the TOC board. The **Lifeline (HQ)** phone additionally gets a
   **platoon picker** — tap any platoon to browse its Now / Next and rest-of-day
   schedule (their own pre-event alerts still follow Lifeline); regular platoons
   just see their own.

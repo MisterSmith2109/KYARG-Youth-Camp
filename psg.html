@@ -95,6 +95,16 @@
   .abtn.call{background:#10231a;border-color:var(--green);color:#cdeccd}
   .abtn.notes{background:#231e10;border-color:var(--amber);color:#f0d9a6}
   .abtn.supply{grid-column:1/-1;background:#16202b;border-color:#5a7d8c;color:#cfe3ef}
+  .abtn.docs{grid-column:1/-1;background:#1a2118;border-color:var(--olive);color:var(--olive-bright)}
+  /* documents list */
+  .doc-row{display:flex;align-items:center;gap:11px;padding:13px 12px;border:1px solid var(--line);border-radius:11px;margin-bottom:9px;text-decoration:none;color:var(--ink);background:var(--panel-2)}
+  .doc-row:active{background:var(--line-soft)}
+  .doc-ico{font-size:22px;flex:none}
+  .doc-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .doc-title{font-size:16px;font-weight:600}
+  .doc-kind{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .doc-open{color:var(--olive-bright);font-weight:700;font-size:14px;flex:none}
+  .doc-empty{padding:16px 4px;text-align:center}
   .abtn.disabled{opacity:.4;pointer-events:none}
   /* My supply requests (local history + live status) */
   .myreq{padding:12px 14px}
@@ -235,6 +245,7 @@
     <button class="abtn report" id="btnReport"><span class="ico">📝</span>Report to TOC</button>
     <button class="abtn notes" id="btnNotes"><span class="ico">🗒️</span>Notes</button>
     <button class="abtn supply" id="btnSupply"><span class="ico">📦</span>Supply Request</button>
+    <button class="abtn docs" id="btnDocs"><span class="ico">📁</span>Documents</button>
   </div>
 
   <div class="card myreq hide" id="myReqCard">
@@ -353,6 +364,16 @@
     <div class="mr-head hide" id="noteHead" style="margin-top:16px"><span class="k">Saved notes</span><button class="mr-clear" id="noteCopy">copy all</button></div>
     <div id="noteList"></div>
     <div style="text-align:center;margin-top:12px"><button class="linkbtn" id="noteClose">Done</button></div>
+  </div>
+</div>
+
+<!-- documents sheet (reference files: map, cadences, plans) -->
+<div class="overlay hide" id="documents">
+  <div class="sheet">
+    <h1>Documents</h1>
+    <p>Reference files — tap to open. Needs a connection to download the first time.</p>
+    <div id="docList"></div>
+    <div style="text-align:center;margin-top:12px"><button class="linkbtn" id="docClose">Done</button></div>
   </div>
 </div>
 
@@ -895,6 +916,37 @@
     saveNotes(loadNotes().filter(function(n){ return n.id!==id; })); renderNotes();
   });
 
+  // ---------- documents (reference files served from the docs/ folder) ----------
+  var DOCS=[], docsState="idle"; // idle | loading | ready | error
+  function docUrl(rel){ try{ return new URL("docs/"+rel, location.href).href; }catch(e){ return "docs/"+rel; } }
+  function loadDocs(){
+    if(docsState==="loading") return;
+    docsState="loading"; renderDocs();
+    fetch(docUrl("manifest.json"),{cache:"no-cache"}).then(function(r){ return r.ok?r.json():null; }).then(function(j){
+      DOCS=(j&&Array.isArray(j.documents))?j.documents:[]; docsState="ready"; renderDocs();
+    }).catch(function(){ docsState="error"; renderDocs(); });
+  }
+  function renderDocs(){
+    var list=$("docList"); if(!list) return;
+    if(!DOCS.length){
+      var msg = docsState==="loading" ? "Loading…" : docsState==="error" ? "Couldn't load documents — check your signal and try again." : "No documents available yet.";
+      list.innerHTML='<div class="doc-empty muted">'+esc(msg)+'</div>'; return;
+    }
+    list.innerHTML="";
+    DOCS.forEach(function(d){
+      if(!d||!d.file) return;
+      var a=document.createElement("a");
+      a.className="doc-row"; a.href=docUrl(d.file); a.target="_blank"; a.rel="noopener";
+      a.innerHTML='<span class="doc-ico">📄</span><span class="doc-main"><span class="doc-title">'+esc(d.title||d.file)+'</span>'+
+        (d.kind?'<span class="doc-kind">'+esc(d.kind)+'</span>':'')+'</span><span class="doc-open">Open ›</span>';
+      list.appendChild(a);
+    });
+  }
+  function openDocs(){ if(docsState==="idle"||docsState==="error") loadDocs(); else renderDocs(); $("documents").classList.remove("hide"); }
+  function closeDocs(){ $("documents").classList.add("hide"); }
+  $("btnDocs").addEventListener("click",openDocs);
+  $("docClose").addEventListener("click",closeDocs);
+
   $("btnAlerts").addEventListener("click",requestAlerts);
   $("evtAlertX").addEventListener("click",function(){ dismissedKey=shownKey; $("evtAlert").classList.add("hide"); });
 
@@ -913,6 +965,7 @@
 
   wrRestore();
   updateBell();
+  loadDocs();
   connect();
 })();
 </script>
