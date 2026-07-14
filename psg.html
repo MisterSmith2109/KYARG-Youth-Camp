@@ -37,6 +37,14 @@
   .announce{background:var(--amber);color:#241a05;border:none;font-weight:600;font-size:16px;display:flex;gap:10px;align-items:flex-start}
   .announce .ann-i{font-weight:800;font-family:var(--mono);font-size:12px;letter-spacing:.12em;padding-top:2px;white-space:nowrap}
 
+  /* pre-event alert banner */
+  .evtalert{background:var(--olive);color:#12140e;border:none;display:flex;align-items:center;gap:10px;padding:12px 14px}
+  .ea-main{flex:1;min-width:0}
+  .ea-k{font-family:var(--mono);font-size:10px;font-weight:800;letter-spacing:.14em}
+  .ea-act{font-size:19px;font-weight:800;line-height:1.15;margin-top:2px;text-wrap:balance}
+  .ea-meta{font-family:var(--mono);font-size:13px;font-weight:700;opacity:.85;margin-top:2px}
+  .ea-x{background:rgba(18,20,14,.18);border:none;color:#12140e;font-size:22px;line-height:1;width:34px;height:34px;border-radius:8px;flex:none}
+
   .now-hd{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
   .now-act{font-size:26px;font-weight:800;line-height:1.15;margin:6px 0 3px;text-wrap:balance}
   .now-loc{font-size:16px;color:var(--olive-bright);font-weight:600}
@@ -141,7 +149,9 @@
   .primary:active{background:var(--olive-bright)}
   .linkbtn{background:none;border:none;color:var(--muted);text-decoration:underline;font-size:13px;padding:8px}
   .foot{display:flex;justify-content:space-between;align-items:center;margin-top:16px;color:var(--muted);font-size:12px;font-family:var(--mono)}
+  .foot-btns{display:flex;gap:8px}
   .foot button{background:none;border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:7px 11px;min-height:40px}
+  #btnAlerts{font-size:16px;padding:7px 10px}
   .hide{display:none!important}
   @media (prefers-reduced-motion:reduce){*{animation:none!important}}
 </style>
@@ -158,6 +168,11 @@
       <div class="h-stat"><span class="dot" id="hDot"></span><span id="hStat">connecting…</span></div>
     </div>
   </header>
+
+  <div class="card evtalert hide" id="evtAlert">
+    <div class="ea-main"><span class="ea-k">STARTING SOON</span><div class="ea-act" id="evtAlertAct">—</div><div class="ea-meta" id="evtAlertMeta"></div></div>
+    <button class="ea-x" id="evtAlertX" aria-label="Dismiss">×</button>
+  </div>
 
   <div class="card announce hide" id="annCard"><span class="ann-i">NOTICE</span><span id="annText"></span></div>
 
@@ -213,7 +228,7 @@
 
   <div class="foot">
     <span id="updated">—</span>
-    <button id="btnSettings">Settings</button>
+    <span class="foot-btns"><button id="btnAlerts" title="Lock-screen alerts">🔕</button><button id="btnSettings">Settings</button></span>
   </div>
 </div>
 
@@ -310,7 +325,9 @@
 (function(){
   var $=function(id){return document.getElementById(id);};
   var LS_URL="kyarng-psg-url", LS_PLT="kyarng-psg-platoon", LS_WR="kyarng-psg-wr",
-      LS_OUTBOX="kyarng-psg-outbox", LS_BOARD="kyarng-psg-board";
+      LS_OUTBOX="kyarng-psg-outbox", LS_BOARD="kyarng-psg-board",
+      LS_NOTIFY="kyarng-psg-notify", LS_ALERTED="kyarng-psg-alerted";
+  var ALERT_LEAD=10; // minutes before an event to alert
   var HC_TYPES=["Heat cramps","Heat exhaustion","Heat stroke","Other / precaution"]; // must match index.html
   var INC_QUICK=["Injury","Illness","Missing camper","Behavior","Dehydration","Other"];
   var CAMP_TZ="America/Chicago";
@@ -520,11 +537,55 @@
     $("updated").textContent="updated "+pad(c.h)+":"+pad(c.m)+" CT";
     renderWR();
     renderSent(); // refresh my-requests live status against the freshly pulled board
+    checkEventAlert(); // show/refresh the 10-min heads-up for the next activity
     // if the setup sheet is open, refresh the platoon list now that we have the board
     if(!$("setup").classList.contains("hide")) fillSetupPlatoons();
   }
   function fmtRange(r){ if(!r||!r.rng) return ""; return to12(r.rng.start)+(r.rng.end!=null&&r.end!==r.rng.start?" – "+to12(r.end):""); }
   function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+  // ---------- pre-event alert (10 min before the next activity) ----------
+  // Always shows an in-app banner + chime/vibrate; if the PSG has opted in (the bell toggle),
+  // it also fires a lock-screen notification so a pocketed phone still gets the heads-up.
+  var alertedKey="", shownKey="", dismissedKey="";
+  try{ alertedKey=localStorage.getItem(LS_ALERTED)||""; }catch(e){}
+  function evtKey(next){ return state.platoon+"|"+(CAMP_DAYS[campNow().dayIdx]||"")+"|"+(next.time||"")+"|"+(next.activity||""); }
+  function alertsEnabled(){ try{ return localStorage.getItem(LS_NOTIFY)==="1"; }catch(e){ return false; } }
+  function pushOk(){ return ("Notification" in window) && Notification.permission==="granted" && alertsEnabled(); }
+  function updateBell(){ var b=$("btnAlerts"); if(!b) return; var on=pushOk(); b.textContent=on?"🔔":"🔕"; b.title=on?"Lock-screen alerts on":"Lock-screen alerts off"; }
+  function fireEventAlert(next,key){
+    try{ beep(); }catch(e){}
+    try{ if(navigator.vibrate) navigator.vibrate([200,100,200]); }catch(e){}
+    if(pushOk()){ try{ new Notification((state.platoon?state.platoon+" · ":"")+"Starting soon",
+      { body:(next.activity||"Next event")+" — "+fmtRange(next)+(next.loc?" · "+next.loc:""), tag:key }); }catch(e){} }
+  }
+  function checkEventAlert(){
+    var ea=$("evtAlert"); if(!ea) return;
+    var rows=todayRows(), nn=rows.length?nowNext(rows):{cur:null,next:null}, next=nn.next;
+    if(!next||!next.rng){ ea.classList.add("hide"); return; }
+    var mins=next.rng.start-nowMin(); if(mins<0) mins+=1440;
+    var key=evtKey(next);
+    if(mins<=ALERT_LEAD && mins>=0){
+      if(dismissedKey===key){ ea.classList.add("hide"); }
+      else{
+        shownKey=key;
+        $("evtAlertAct").textContent=next.activity||"—";
+        $("evtAlertMeta").textContent=(mins<=0?"now":("in "+mins+" min"))+" · "+fmtRange(next)+(next.loc?" · "+next.loc:"");
+        ea.classList.remove("hide");
+      }
+      if(alertedKey!==key){ alertedKey=key; try{ localStorage.setItem(LS_ALERTED,key); }catch(e){} fireEventAlert(next,key); }
+    } else { ea.classList.add("hide"); }
+  }
+  function requestAlerts(){
+    if(!("Notification" in window)){ toast("On iPhone: tap Share → Add to Home Screen, then open it from there to get lock-screen alerts. In-app alerts already work.",false); return; }
+    if(alertsEnabled()){ try{ localStorage.setItem(LS_NOTIFY,"0"); }catch(e){} updateBell(); toast("Lock-screen alerts off (in-app alerts still on)"); return; }
+    if(Notification.permission==="granted"){ try{ localStorage.setItem(LS_NOTIFY,"1"); }catch(e){} updateBell(); toast("Lock-screen alerts on ✓"); return; }
+    if(Notification.permission==="denied"){ toast("Notifications are blocked for this site — turn them on in your browser settings.",true); return; }
+    Notification.requestPermission().then(function(p){
+      if(p==="granted"){ try{ localStorage.setItem(LS_NOTIFY,"1"); }catch(e){} updateBell(); toast("Lock-screen alerts on ✓"); }
+      else { toast("Not enabled — you'll still get in-app alerts.",false); }
+    }).catch(function(){});
+  }
 
   // ---------- work/rest timer (local to this phone) ----------
   var wr={running:false,phase:"work",endsAt:0,timer:null};
@@ -720,8 +781,11 @@
   $("repTabHeat").addEventListener("click",function(){ setReportMode("heat"); });
   $("repHeatType").addEventListener("change",function(){ $("repHsWarn").classList.toggle("hide", this.value!=="Heat stroke"); });
 
-  // clock tick
-  setInterval(function(){ var c=campNow(); $("hTime").textContent=pad(c.h)+":"+pad(c.m); if(wr.running) renderWR(); },1000);
+  $("btnAlerts").addEventListener("click",requestAlerts);
+  $("evtAlertX").addEventListener("click",function(){ dismissedKey=shownKey; $("evtAlert").classList.add("hide"); });
+
+  // clock tick — also drives the minute-accurate pre-event alert
+  setInterval(function(){ var c=campNow(); $("hTime").textContent=pad(c.h)+":"+pad(c.m); if(wr.running) renderWR(); checkEventAlert(); },1000);
 
   // Pre-fill from a shared link: psg.html?sync=<exec url>&platoon=<name>. Saves it, then
   // cleans the address bar so the sync link isn't left sitting in the URL.
@@ -734,6 +798,7 @@
   }catch(e){}
 
   wrRestore();
+  updateBell();
   connect();
 })();
 </script>
