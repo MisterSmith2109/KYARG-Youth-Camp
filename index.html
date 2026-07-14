@@ -397,6 +397,8 @@
   .hc-emg b{color:var(--red)}
   select.hc-type{font-family:inherit;font-size:13px;padding:5px 6px;border-radius:5px;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);width:100%}
   tr.hc-stroke td{background:rgba(196,60,45,.10)}
+  tr.sr-urgent td{background:rgba(196,60,45,.12)}
+  tr.sr-filled{opacity:.5}
   /* Accountability · Formation view */
   .fm-banner{border-radius:8px;border:1px solid var(--line);padding:14px 16px;margin-bottom:14px;display:flex;flex-direction:column;gap:3px;background:var(--panel-2)}
   .fm-banner.ok{background:var(--green);color:#0f1a0e;border-color:var(--green)}
@@ -739,6 +741,21 @@
     </div>
   </div>
 
+  <!-- SUPPLY REQUESTS -->
+  <div class="panel" id="supplyPanel">
+    <div class="panel-head"><h2>Supply Requests</h2><div class="head-right"><span class="si-chip" id="supplyChip"></span></div></div>
+    <div class="panel-body">
+      <div class="panel-sub">Requests from the platoons (sent from the PSG phone page) plus anything you add here. Mark each <b>Filled</b> once it&rsquo;s handled. Urgent open requests are highlighted.</div>
+      <div class="tbl-scroll">
+        <table>
+          <thead><tr><th>Time</th><th>Platoon</th><th>Pri</th><th>Item</th><th>Qty</th><th>Notes</th><th>Status</th><th></th></tr></thead>
+          <tbody id="supplyBody"></tbody>
+        </table>
+      </div>
+      <button class="add-btn" id="supplyAdd">+ Add request</button>
+    </div>
+  </div>
+
   <!-- HEAT CASUALTIES -->
   <div class="panel" id="hcPanel">
     <div class="panel-head"><h2>Heat Casualties</h2><div class="head-right"><span class="si-chip" id="hcChip"></span></div></div>
@@ -758,7 +775,7 @@
   <div class="panel" id="psgPanel">
     <div class="panel-head"><h2>Field / PSG Broadcast</h2><span class="hint">shows on the PSG phone page</span></div>
     <div class="panel-body">
-      <div class="panel-sub">Set this up once for the Platoon Sergeants&rsquo; phone page (<b>psg.html</b>). Whatever you type here appears on every PSG phone that&rsquo;s connected to this board. The phones are <b>read-only</b> &mdash; they can see the schedule, heat flag, and this announcement, but can&rsquo;t change the board.</div>
+      <div class="panel-sub">Set this up once for the Platoon Sergeants&rsquo; phone page (<b>psg.html</b>). Whatever you type here appears on every PSG phone that&rsquo;s connected to this board. The phones are read-only apart from <b>Supply Requests</b> &mdash; they can see the schedule, heat flag, and this announcement, and send supply requests (which land in the Supply Requests panel), but can&rsquo;t change anything else on the board.</div>
       <div class="meta" style="margin-bottom:10px">
         <label>Announcement to all platoons</label>
         <input id="psgMsg" placeholder="e.g. All platoons return to Shaver for lunch, moved to 1230">
@@ -3152,6 +3169,7 @@ var qrcode = function() {
     sensitive:[{name:"Motorola APX 8000XE", qty:0, oh:0}], siCheck:"",
     gsas:[],
     heatCas:[],
+    supplyRequests:[],
     roster:[],
     activeDay:0,
     activePlatoon:-1,
@@ -3166,6 +3184,7 @@ var qrcode = function() {
     if(!Array.isArray(st.sensitive)) st.sensitive=defaults().sensitive;
     if(!Array.isArray(st.gsas)) st.gsas=[];
     if(!Array.isArray(st.heatCas)) st.heatCas=[];
+    if(!Array.isArray(st.supplyRequests)) st.supplyRequests=[];
     // safe-merge sync bookkeeping: give list records stable ids; keep the merge maps
     if(!st._m||typeof st._m!=="object") st._m={};
     if(!st._tomb||typeof st._tomb!=="object") st._tomb={};
@@ -3237,7 +3256,7 @@ var qrcode = function() {
   let syncUrl=""; try{ syncUrl=localStorage.getItem(SYNC_KEY)||""; }catch(e){}
   let syncPollTimer=null, syncPushTimer=null, syncLastRev=-1, syncApplying=false, syncConnected=false, syncPushPending=false;
   // --- safe-merge metadata (mirrors the rules in sync/Code.gs) ---
-  const SYNC_LISTS=["roster","incidents","sensitive","gsas","heatCas"];
+  const SYNC_LISTS=["roster","incidents","sensitive","gsas","heatCas","supplyRequests"];
   const SYNC_SECTIONS={
     header:["campName","day","oic","nco","wx","wxCoords","volLabel","vol","gsaLabel"],
     wbgt:["wbgt","wbgtAuto"],
@@ -3749,6 +3768,35 @@ var qrcode = function() {
     const chip=$("hcChip"); if(chip) chip.textContent = n ? (n+" logged"+(stroke?" · "+stroke+" stroke":"")) : "none";
   }
 
+  // ---------- render supply requests ----------
+  const SUPPLY_PRI=["Routine","Priority","Urgent"], SUPPLY_ST=["Open","Filled"];
+  function renderSupply(){
+    const b=$("supplyBody"); if(!b) return; b.innerHTML="";
+    const list=state.supplyRequests||[];
+    if(list.length===0){
+      b.innerHTML='<tr><td colspan="8" class="inc-empty">No supply requests. Platoons can send them from the PSG page.</td></tr>';
+    }else{
+      list.forEach((r,i)=>{
+        const tr=document.createElement("tr");
+        if(r.status==="Filled") tr.className="sr-filled"; else if(r.priority==="Urgent") tr.className="sr-urgent";
+        const prOpts=SUPPLY_PRI.map(x=>'<option'+(r.priority===x?" selected":"")+'>'+x+'</option>').join("");
+        const stOpts=SUPPLY_ST.map(x=>'<option'+(r.status===x?" selected":"")+'>'+x+'</option>').join("");
+        tr.innerHTML=
+          '<td><input class="t" data-sr="'+i+'" data-f="time" value="'+esc(r.time)+'" placeholder="time"></td>'+
+          '<td><input class="row-label" data-sr="'+i+'" data-f="platoon" value="'+esc(r.platoon)+'" placeholder="platoon"></td>'+
+          '<td><select class="hc-type" data-sr="'+i+'" data-f="priority">'+prOpts+'</select></td>'+
+          '<td><input data-sr="'+i+'" data-f="item" value="'+esc(r.item)+'" placeholder="what&rsquo;s needed"></td>'+
+          '<td><input data-sr="'+i+'" data-f="qty" value="'+esc(r.qty)+'" placeholder="#"></td>'+
+          '<td><input data-sr="'+i+'" data-f="notes" value="'+esc(r.notes)+'" placeholder="notes"></td>'+
+          '<td><select class="hc-type" data-sr="'+i+'" data-f="status">'+stOpts+'</select></td>'+
+          '<td><button class="icon-btn" data-delsr="'+i+'" title="Remove">×</button></td>';
+        b.appendChild(tr);
+      });
+    }
+    const open=list.filter(r=>r.status!=="Filled").length, urg=list.filter(r=>r.status!=="Filled"&&r.priority==="Urgent").length;
+    const chip=$("supplyChip"); if(chip) chip.textContent = list.length ? (open+" open"+(urg?" · "+urg+" urgent":"")) : "none";
+  }
+
   // ---------- render incidents ----------
   function renderInc(){
     const b=$("incBody"); b.innerHTML="";
@@ -4084,7 +4132,7 @@ var qrcode = function() {
     });
   }
 
-  function renderAll(){ renderTiles(); renderPer(); renderSensitive(); renderGsa(); renderHeatCas(); renderInc(); renderRoster(); renderDtabs(); renderPtabs(); renderSchedule(); renderHeat(); }
+  function renderAll(){ renderTiles(); renderPer(); renderSensitive(); renderGsa(); renderHeatCas(); renderSupply(); renderInc(); renderRoster(); renderDtabs(); renderPtabs(); renderSchedule(); renderHeat(); }
  
   // ---------- events ----------
   // header + tile fields
@@ -4108,11 +4156,13 @@ var qrcode = function() {
     else if(t.dataset.si!=null){ const it=state.sensitive[+t.dataset.si]; const f=t.dataset.f; it[f]=(f==="name")?t.value:(+t.value||0); if(f!=="name") refreshSi(); save(); }
     else if(t.dataset.gsa!=null){ const g=state.gsas[+t.dataset.gsa]; g[t.dataset.f]=t.value; if(t.dataset.f==="holder"){ renderTiles(); const c=$("gsaChip"); if(c){ const l=state.gsas; c.textContent=l.filter(x=>String(x.holder||"").trim()).length+" out · "+l.length+" total"; } } save(); }
     else if(t.dataset.hc!=null){ const c=state.heatCas[+t.dataset.hc]; if(c){ c[t.dataset.f]=t.value; save(); } }
+    else if(t.dataset.sr!=null){ const c=state.supplyRequests[+t.dataset.sr]; if(c){ c[t.dataset.f]=t.value; save(); } }
   });
   document.body.addEventListener("change",e=>{
     const t=e.target;
     if(t.dataset.ros!=null){ const f=t.dataset.f; const r=state.roster[+t.dataset.ros]; r[f]=t.value; if(f==="status") r.last=nowDTG(); renderRoster(); renderTiles(); save(); return; }
     else if(t.dataset.hc!=null && t.dataset.f==="type"){ const c=state.heatCas[+t.dataset.hc]; if(c){ c.type=t.value; renderHeatCas(); save(); } return; }
+    else if(t.dataset.sr!=null && (t.dataset.f==="priority"||t.dataset.f==="status")){ const c=state.supplyRequests[+t.dataset.sr]; if(c){ c[t.dataset.f]=t.value; renderSupply(); save(); } return; }
   });
   // delegated delete + add
   document.body.addEventListener("click",e=>{
@@ -4121,6 +4171,7 @@ var qrcode = function() {
     else if(t.dataset.delsi!=null){ state.sensitive.splice(+t.dataset.delsi,1); renderSensitive(); save(); }
     else if(t.dataset.delgsa!=null){ state.gsas.splice(+t.dataset.delgsa,1); renderGsa(); renderTiles(); save(); }
     else if(t.dataset.delhc!=null){ state.heatCas.splice(+t.dataset.delhc,1); renderHeatCas(); save(); }
+    else if(t.dataset.delsr!=null){ state.supplyRequests.splice(+t.dataset.delsr,1); renderSupply(); save(); }
     else if(t.dataset.delros!=null){ state.roster.splice(+t.dataset.delros,1); renderRoster(); renderTiles(); save(); }
     else if(t.dataset.delsch!=null){ const s=curSched(); if(s) s.splice(+t.dataset.delsch,1); renderSchedule(); save(); }
     else if(t.dataset.cancelsch!=null){ const s=curSched(); if(s&&s[+t.dataset.cancelsch]){ const r=s[+t.dataset.cancelsch]; r.canceled=!r.canceled; } renderSchedule(); save(); }
@@ -4131,6 +4182,7 @@ var qrcode = function() {
   $("siAdd").addEventListener("click",()=>{ state.sensitive.push({id:newId(),name:"",qty:0,oh:0}); renderSensitive(); save(); });
   $("gsaAdd").addEventListener("click",()=>{ state.gsas.push({id:newId(),name:"",holder:"",loc:""}); renderGsa(); renderTiles(); save(); });
   $("hcAdd").addEventListener("click",()=>{ state.heatCas.push({id:newId(),time:hhmmLocal(),name:"",type:"Heat exhaustion",action:""}); renderHeatCas(); save(); });
+  $("supplyAdd").addEventListener("click",()=>{ state.supplyRequests.push({id:newId(),time:hhmmLocal(),platoon:"",priority:"Routine",item:"",qty:"",notes:"",status:"Open"}); renderSupply(); save(); });
   $("wrStart").addEventListener("click",wrStart);
   $("wrStop").addEventListener("click",wrStop);
   $("wrSkip").addEventListener("click",()=>{ if(wr.running){ wrAdvance(); renderWR(); } });
@@ -4326,6 +4378,10 @@ var qrcode = function() {
     L.push("");
     { const pt=perstatTotals(); L.push("ON GROUND: "+pt.pres+" / "+pt.asg); }
     L.push("INCIDENT REPORTS: "+state.incidents.length+" ("+state.incidents.filter(i=>i.status!=="Closed").length+" open)");
+    { const sr=state.supplyRequests||[]; const open=sr.filter(r=>r.status!=="Filled");
+      if(sr.length){ const urg=open.filter(r=>r.priority==="Urgent").length;
+        L.push("SUPPLY REQUESTS: "+open.length+" open"+(urg?" ("+urg+" URGENT)":""));
+        open.forEach(r=>{ L.push("  ["+(r.priority||"Routine")+"] "+(String(r.platoon||"").trim()||"?")+": "+(String(r.item||"").trim()||"(item)")+(String(r.qty||"").trim()?" x"+r.qty:"")+(String(r.notes||"").trim()?" — "+r.notes.trim():"")); }); } }
     { const gl=state.gsas||[]; const out=gl.filter(g=>String(g.holder||"").trim()).length;
       L.push(state.gsaLabel.toUpperCase()+": "+gl.length+(gl.length?" ("+out+" signed out)":""));
       gl.forEach(g=>{ const nm=String(g.name||"").trim()||"(unnamed)"; const who=String(g.holder||"").trim(); const loc=String(g.loc||"").trim();

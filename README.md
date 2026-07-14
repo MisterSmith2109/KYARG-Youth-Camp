@@ -83,6 +83,10 @@ from a phone, not just a laptop or wall display.
   *published CSV* link and new submissions drop in automatically (deduped;
   deleting an imported entry keeps it from returning). Columns are auto-detected,
   so it adapts to your form. A "Load CSV file" button is a manual fallback.
+- **Supply Requests** *(new)* — an inbox of requests from the platoons (sent from
+  the PSG phone page) plus anything you add by hand: platoon, priority
+  (Routine/Priority/Urgent), item, quantity, notes. Urgent open requests are
+  highlighted; mark each **Filled** when handled. Open requests appear in the SITREP.
 - **Copy SITREP** — one-tap plain-text situation report (accountability, who's
   not signed in, PERSTAT, schedule, incidents) ready to paste into an email or chat.
 - **Live Sync** *(new, optional)* — share one live board across multiple
@@ -93,9 +97,12 @@ from a phone, not just a laptop or wall display.
   for Platoon Sergeants out with the campers. It connects to the same live board
   (via the sync link) and shows just what they need: their platoon's **Now / Next**
   activity and location, the **heat flag + water/work-rest guidance** (with an
-  optional work/rest timer), a one-tap **Report to TOC** (your incident form) and
-  **Call TOC** button, and any **announcement** the TOC broadcasts. The phones only
-  *read* the board — they can't change it. Set the announcement, incident form
+  optional work/rest timer), a one-tap **Report to TOC** (your incident form),
+  **Call TOC**, and **Supply Request** (a quick form — item, quantity, priority —
+  that lands in the TOC's Supply Requests panel), plus any **announcement** the TOC
+  broadcasts. The phones are read-only apart from sending supply requests — a phone
+  can only *add* a request, never change anything else on the board. Set the
+  announcement, incident form
   link, and TOC phone number in the **Field / PSG Broadcast** panel on the main
   board, which also shows a **QR code and "Copy PSG link"** — a PSG scans the code
   or taps the link and the page opens with the sync link already filled in; they

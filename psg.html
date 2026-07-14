@@ -79,7 +79,12 @@
   .abtn .ico{font-size:22px;line-height:1}
   .abtn.report{background:#2a1410;border-color:var(--red);color:#ffd9d1}
   .abtn.call{background:#10231a;border-color:var(--green);color:#cdeccd}
+  .abtn.supply{grid-column:1/-1;background:#16202b;border-color:#5a7d8c;color:#cfe3ef}
   .abtn.disabled{opacity:.4;pointer-events:none}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--green);color:#0f1a0e;font-weight:700;
+    padding:11px 18px;border-radius:10px;z-index:60;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90%;text-align:center}
+  .toast.show{opacity:1}
+  .toast.err{background:var(--red);color:#2a0d08}
 
   /* today list */
   details.today{margin-top:12px}
@@ -165,6 +170,7 @@
   <div class="actions">
     <a class="abtn report disabled" id="btnReport" target="_blank" rel="noopener"><span class="ico">📝</span>Report to TOC</a>
     <a class="abtn call disabled" id="btnCall"><span class="ico">📞</span>Call TOC</a>
+    <button class="abtn supply" id="btnSupply"><span class="ico">📦</span>Supply Request</button>
   </div>
 
   <details class="today">
@@ -182,7 +188,7 @@
 <div class="overlay hide" id="setup">
   <div class="sheet">
     <h1 id="setupTitle">PSG Field View</h1>
-    <p>Set your platoon and paste the camp sync link (ask the TOC for it). Your phone only <b>reads</b> the board — it can't change it.</p>
+    <p>Set your platoon and paste the camp sync link (ask the TOC for it). Your phone only <b>reads</b> the board and <b>sends supply requests</b> — it can't change anything else.</p>
     <div class="field">
       <label>Your platoon</label>
       <select id="setPlt"></select>
@@ -195,6 +201,34 @@
     <div style="text-align:center"><button class="linkbtn" id="setCancel">Cancel</button></div>
   </div>
 </div>
+
+<!-- supply request submit sheet -->
+<div class="overlay hide" id="supply">
+  <div class="sheet">
+    <h1>Supply Request</h1>
+    <p>From <b id="supPlt">—</b> to the TOC. It shows on the TOC board within a few seconds.</p>
+    <div class="field">
+      <label>Item needed</label>
+      <input id="supItem" placeholder="e.g. water cases, sunscreen, band-aids">
+    </div>
+    <div class="field">
+      <label>Quantity</label>
+      <input id="supQty" placeholder="e.g. 3 cases">
+    </div>
+    <div class="field">
+      <label>Priority</label>
+      <select id="supPri"><option>Routine</option><option>Priority</option><option>Urgent</option></select>
+    </div>
+    <div class="field">
+      <label>Notes (optional)</label>
+      <input id="supNotes" placeholder="where to deliver, etc.">
+    </div>
+    <button class="primary" id="supSend">Send to TOC</button>
+    <div style="text-align:center"><button class="linkbtn" id="supCancel">Cancel</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
 
 <script>
 (function(){
@@ -409,6 +443,45 @@
   $("setCancel").addEventListener("click",closeSetup);
   $("btnSettings").addEventListener("click",function(){ openSetup(false); });
   $("wrBtn").addEventListener("click",function(){ if(wr.running) wrStop(); else wrStart(); });
+
+  // ---------- supply request (the one thing the phone SENDS) ----------
+  var toastTimer=null;
+  function toast(msg,err){ var t=$("toast"); if(!t) return; t.textContent=msg; t.className="toast show"+(err?" err":""); clearTimeout(toastTimer); toastTimer=setTimeout(function(){ t.className="toast"+(err?" err":""); },2800); }
+  function openSupply(){
+    if(!state.url){ toast("Set up sync first — tap Settings.",true); return; }
+    $("supPlt").textContent=state.platoon||"your platoon";
+    $("supply").classList.remove("hide"); setTimeout(function(){ $("supItem").focus(); },50);
+  }
+  function closeSupply(){ $("supply").classList.add("hide"); }
+  function sendSupply(){
+    var item=$("supItem").value.trim();
+    if(!item){ $("supItem").focus(); $("supItem").style.borderColor="var(--red)"; return; }
+    if(!state.url){ toast("Not connected — can't send.",true); return; }
+    if(!state.board){ toast("Still loading the board — try again in a moment.",true); return; }
+    // Post the board with our new request appended. The server merges by record id, so a phone
+    // can only ADD a request — it can't overwrite or wipe anything else on the board.
+    var board=JSON.parse(JSON.stringify(state.board));
+    if(!Array.isArray(board.supplyRequests)) board.supplyRequests=[];
+    var now=Date.now(), c=campNow();
+    board.supplyRequests.push({
+      id:"sr"+now.toString(36)+Math.random().toString(36).slice(2,6),
+      platoon:state.platoon||"", item:item, qty:$("supQty").value.trim(),
+      priority:$("supPri").value||"Routine", notes:$("supNotes").value.trim(),
+      time:pad(c.h)+pad(c.m), status:"Open", _m:now
+    });
+    try{
+      fetch(state.url,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(board)})
+        .then(function(){ toast("Supply request sent to TOC ✓"); })
+        .catch(function(){ toast("Send failed — check signal and retry.",true); });
+    }catch(e){ toast("Send failed — check signal and retry.",true); }
+    state.board=board; // optimistic local copy
+    closeSupply();
+    $("supItem").value=""; $("supQty").value=""; $("supNotes").value=""; $("supPri").value="Routine";
+    $("supItem").style.borderColor="";
+  }
+  $("btnSupply").addEventListener("click",openSupply);
+  $("supCancel").addEventListener("click",closeSupply);
+  $("supSend").addEventListener("click",sendSupply);
 
   // clock tick
   setInterval(function(){ var c=campNow(); $("hTime").textContent=pad(c.h)+":"+pad(c.m); if(wr.running) renderWR(); },1000);
