@@ -163,6 +163,21 @@
   .inc-row .t{font-family:var(--mono);font-size:12px}
   .inc-row .rm{line-height:1.4;min-height:32px;overflow:hidden;resize:vertical;white-space:pre-wrap;word-break:break-word}
   .inc-empty{color:var(--muted);font-family:var(--mono);font-size:13px;padding:8px 2px}
+
+  /* Backups modal */
+  .bk-modal{position:fixed;inset:0;background:rgba(8,9,6,.82);display:flex;align-items:center;justify-content:center;padding:18px;z-index:80}
+  .bk-modal[hidden]{display:none}
+  .bk-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;max-width:540px;width:100%;max-height:88vh;overflow:auto;padding:16px}
+  .bk-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .bk-head h2{margin:0;font-size:18px}
+  .bk-sub{color:var(--muted);font-size:13px;line-height:1.5;margin:8px 0 12px}
+  .bk-actions{margin-bottom:6px}
+  .bk-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line-soft)}
+  .bk-row:first-child{border-top:none}
+  .bk-when{flex:1;min-width:0}
+  .bk-t{font-weight:600;font-size:14px}
+  .bk-meta{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .bk-btns{display:flex;gap:6px;flex:none}
  
   /* Toolbar */
   .toolbar{
@@ -827,9 +842,19 @@
     <button class="btn" id="btnSave" title="Download the whole board as a file you can carry to another computer">Save file</button>
     <button class="btn" id="btnLoad" title="Load a board file saved on another computer">Load file</button>
     <input type="file" id="boardFile" accept=".json,application/json" style="display:none">
+    <button class="btn" id="btnBackups" title="Automatic local snapshots of this board — restore if something gets wiped">Backups</button>
     <button class="btn danger" id="btnReset">Reset board</button>
   </div>
- 
+
+  <div id="bkModal" class="bk-modal" hidden>
+    <div class="bk-card">
+      <div class="bk-head"><h2>Board backups</h2><button class="btn" id="bkClose">Close</button></div>
+      <p class="bk-sub">Automatic local snapshots of this board on <b>this computer</b> (taken as you work, before a reset, and before loading a file). If something gets wiped or a bad edit sticks, restore a recent one — restoring snapshots the current board first, so it's undoable. For off-computer safety, also use <b>Save file</b> now and then.</p>
+      <div class="bk-actions"><button class="btn" id="bkNow">Back up now</button></div>
+      <div id="bkList" class="bk-list"></div>
+    </div>
+  </div>
+
 <script>
 /* qrcode-generator 1.4.4 — Kazuhiko Arase, MIT license — inlined for offline QR */
 //---------------------------------------------------------------------
@@ -4493,6 +4518,7 @@ var qrcode = function() {
       let obj;
       try{ obj=JSON.parse(String(fr.result)); }catch(e){ boardNote("not a valid board file"); return; }
       if(!obj||typeof obj!=="object"||Array.isArray(obj)){ boardNote("not a valid board file"); return; }
+      bkSnapshot("before load file"); // snapshot the current board before it's overwritten
       state=migrateState(obj);
       hydrateInputs();
       renderAll();
@@ -4504,6 +4530,72 @@ var qrcode = function() {
   $("btnSave").addEventListener("click",saveFile);
   $("btnLoad").addEventListener("click",()=>$("boardFile").click());
   $("boardFile").addEventListener("change",e=>{ loadFile(e.target.files[0]); e.target.value=""; });
+
+  // ---------- automatic local backups (rolling snapshots on this computer) ----------
+  const BKEY="kyarng-camp-board-backups-v1", BK_MAX=24, BK_BUDGET=3000000;
+  async function bkLoadList(){
+    try{ if(window.storage&&window.storage.get){ const r=await window.storage.get(BKEY,false); if(r&&r.value) return JSON.parse(r.value)||[]; } }catch(e){}
+    try{ const v=localStorage.getItem(BKEY); if(v) return JSON.parse(v)||[]; }catch(e){}
+    return [];
+  }
+  async function bkStoreList(list){
+    const s=JSON.stringify(list);
+    try{ if(window.storage&&window.storage.set){ await window.storage.set(BKEY,s,false); return; } }catch(e){}
+    try{ localStorage.setItem(BKEY,s); }catch(e){}
+  }
+  async function bkSnapshot(reason){
+    let b; try{ b=JSON.stringify(state); }catch(e){ return; }         // capture current board synchronously
+    const list=await bkLoadList();
+    if(list.length && list[list.length-1].b===b) return;               // no change since last snapshot
+    list.push({ t:Date.now(), rev:(typeof syncLastRev==="number"?syncLastRev:0), reason:reason||"", b:b });
+    while(list.length>BK_MAX) list.shift();                            // cap count
+    let total=0; for(const x of list) total+=(x.b?x.b.length:0);
+    while(list.length>3 && total>BK_BUDGET){ total-=list[0].b.length; list.shift(); } // cap size
+    await bkStoreList(list);
+    if($("bkModal") && !$("bkModal").hidden) renderBackups();
+  }
+  function bkStamp(t){ const d=new Date(t); return pad(d.getMonth()+1)+"/"+pad(d.getDate())+" "+pad(d.getHours())+":"+pad(d.getMinutes()); }
+  function bkRelative(t){ const s=Math.max(0,Math.round((Date.now()-t)/1000));
+    if(s<60) return "just now"; const m=Math.round(s/60); if(m<60) return m+" min ago";
+    const h=Math.round(m/60); if(h<24) return h+" hr ago"; return Math.round(h/24)+" d ago"; }
+  async function renderBackups(){
+    const box=$("bkList"); if(!box) return;
+    const list=(await bkLoadList()).slice().reverse();
+    if(!list.length){ box.innerHTML='<div class="inc-empty">No backups yet — one is taken automatically as you use the board.</div>'; return; }
+    box.innerHTML="";
+    list.forEach(x=>{
+      let cnt=""; try{ const b=JSON.parse(x.b); cnt=(b.roster?b.roster.length:0)+" on roster · "+(b.incidents?b.incidents.length:0)+" incidents"; }catch(e){}
+      const row=document.createElement("div"); row.className="bk-row";
+      row.innerHTML='<div class="bk-when"><div class="bk-t">'+bkStamp(x.t)+' <span class="bk-meta">· '+bkRelative(x.t)+(x.reason?' · '+esc(x.reason):'')+'</span></div><div class="bk-meta">'+esc(cnt)+'</div></div>'+
+        '<div class="bk-btns"><button class="btn" data-bkdl="'+x.t+'">Download</button><button class="btn2" data-bkrestore="'+x.t+'">Restore</button></div>';
+      box.appendChild(row);
+    });
+  }
+  async function bkRestore(t){
+    const list=await bkLoadList(); const snap=list.filter(x=>x.t===t)[0]; if(!snap) return;
+    if(!window.confirm("Restore the board from "+bkStamp(t)+" ("+bkRelative(t)+")?\n\nThe current board is snapshotted first, so you can undo this.")) return;
+    await bkSnapshot("before restore");
+    let obj; try{ obj=JSON.parse(snap.b); }catch(e){ boardNote("backup unreadable"); return; }
+    state=migrateState(obj);
+    hydrateInputs(); renderAll(); WX.load(); save();
+    boardNote("restored backup from "+bkStamp(t)+" ✓");
+    closeBackups();
+  }
+  async function bkDownload(t){
+    const list=await bkLoadList(); const snap=list.filter(x=>x.t===t)[0]; if(!snap) return;
+    try{ const blob=new Blob([snap.b],{type:"application/json"}); const a=document.createElement("a");
+      a.href=URL.createObjectURL(blob); a.download="camp-board-backup-"+bkStamp(t).replace(/[^0-9]/g,"")+".json";
+      document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},0); }catch(e){}
+  }
+  function openBackups(){ renderBackups(); $("bkModal").hidden=false; }
+  function closeBackups(){ $("bkModal").hidden=true; }
+  $("btnBackups").addEventListener("click",openBackups);
+  $("bkClose").addEventListener("click",closeBackups);
+  $("bkNow").addEventListener("click",async()=>{ await bkSnapshot("manual"); renderBackups(); boardNote("backup saved ✓"); });
+  $("bkModal").addEventListener("click",e=>{ if(e.target===$("bkModal")) closeBackups(); });
+  $("bkList").addEventListener("click",e=>{ const t=e.target;
+    if(t.dataset.bkrestore!=null) bkRestore(+t.dataset.bkrestore);
+    else if(t.dataset.bkdl!=null) bkDownload(+t.dataset.bkdl); });
  
   // ---------- full screen ----------
   const fsEl=document.documentElement;
@@ -4668,6 +4760,7 @@ var qrcode = function() {
       return;
     }
     resetResetBtn();
+    await bkSnapshot("before reset"); // so a reset is always recoverable
     await Store.clear(); state=defaults();
     $("campName").value=state.campName; $("mDay").value=""; $("mOic").value=""; $("mNco").value=""; $("mWx").value="";
     $("wxCoords").value=state.wxCoords||""; $("heatInput").value="";
@@ -4734,6 +4827,8 @@ var qrcode = function() {
     $("syncConnect").addEventListener("click",()=>{ if(syncConnected) syncDisconnect(); else syncConnect($("syncUrl").value); });
     if(syncUrl){ $("syncUrl").value=syncUrl; syncConnect(syncUrl); } else { syncSetStatus("not connected",""); }
     renderPsgShare();
+    bkSnapshot("startup");                       // capture a baseline as soon as the board loads
+    setInterval(()=>bkSnapshot("auto"), 300000); // rolling snapshot every 5 minutes (skips if unchanged)
     flash();
   })();
 })();

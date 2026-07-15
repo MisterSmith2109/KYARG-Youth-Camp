@@ -220,5 +220,11 @@ you move a board between computers by hand.
 
 - All data stays on your device (browser storage) plus any files you save. The
   only network call is to the National Weather Service, for the weather panel.
-- **Reset board** clears everything on the current computer — export a `Save file`
-  first if you might want it back.
+- **Automatic backups** *(new)* — the board keeps rolling local snapshots on this
+  computer (as you work, and automatically **before a Reset or a Load file**). Open
+  **Backups** in the top toolbar to see them and **Restore** any one — restoring
+  snapshots the current board first, so it's undoable. This protects against an
+  accidental reset or a bad edit. It's per-computer, so for off-machine safety also
+  use **Save file** now and then.
+- **Reset board** clears everything on the current computer — a snapshot is taken
+  first (see **Backups**), and you can still export a `Save file` too.
