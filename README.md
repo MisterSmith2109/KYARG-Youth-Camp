@@ -40,7 +40,7 @@ from a phone, not just a laptop or wall display.
   signed In (flagging "+2 more on ground" or "2 short"). A **By platoon** rollup
   *(new)* breaks accountability out per platoon — each shows **signed-in / total**
   and how many are still out — grouped from each person's roster *Group*, with
-  renamed-platoon aliases folded in, plus an *Unassigned* bucket for anyone whose
+  renamed-platoon aliases folded in, plus a *Staff* bucket for anyone whose
   group doesn't match a platoon.
 - **PERSTAT** — personnel counts by group (assigned vs. present). Works two ways:
   **type the counts in** directly, or let it fill from the roster. Any group that
@@ -93,6 +93,11 @@ from a phone, not just a laptop or wall display.
   highlighted; mark each **Filled** when handled. Open requests appear in the SITREP.
 - **Copy SITREP** — one-tap plain-text situation report (accountability, who's
   not signed in, PERSTAT, schedule, incidents) ready to paste into an email or chat.
+- **Daily AAR** *(new)* — an after-action / end-of-day summary that auto-fills from
+  the board: accountability (by platoon), heat and casualties, the day's incidents,
+  supply and medic activity, and equipment — plus blank prompts for **Significant
+  activities**, **Sustain**, **Improve**, and **Recommendations** to fill in. Review/edit
+  it in place, then **Copy** or **Download** it as a dated `.txt` for the record.
 - **Live Sync** *(new, optional)* — share one live board across multiple
   computers through a small Google Apps Script you deploy once. See
   [SYNC-SETUP.md](SYNC-SETUP.md).

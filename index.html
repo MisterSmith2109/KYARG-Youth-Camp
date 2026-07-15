@@ -168,6 +168,8 @@
   .bk-modal{position:fixed;inset:0;background:rgba(8,9,6,.82);display:flex;align-items:center;justify-content:center;padding:18px;z-index:80}
   .bk-modal[hidden]{display:none}
   .bk-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;max-width:540px;width:100%;max-height:88vh;overflow:auto;padding:16px}
+  .bk-card-wide{max-width:720px}
+  .aar-text{width:100%;min-height:52vh;font-family:var(--mono);font-size:12px;line-height:1.5;white-space:pre;overflow:auto;background:var(--panel-2);border:1px solid var(--line-soft);border-radius:6px;color:var(--ink);padding:10px}
   .bk-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
   .bk-head h2{margin:0;font-size:18px}
   .bk-sub{color:var(--muted);font-size:13px;line-height:1.5;margin:8px 0 12px}
@@ -850,12 +852,26 @@
     <span class="save-note" id="saveNote">saved</span>
     <button class="btn" id="btnFull">Full screen</button>
     <button class="btn" id="btnCopy">Copy SITREP</button>
+    <button class="btn" id="btnAar" title="Auto-filled after-action / end-of-day summary you can copy or download">Daily AAR</button>
     <button class="btn" id="btnPrint">Print</button>
     <button class="btn" id="btnSave" title="Download the whole board as a file you can carry to another computer">Save file</button>
     <button class="btn" id="btnLoad" title="Load a board file saved on another computer">Load file</button>
     <input type="file" id="boardFile" accept=".json,application/json" style="display:none">
     <button class="btn" id="btnBackups" title="Automatic local snapshots of this board — restore if something gets wiped">Backups</button>
     <button class="btn danger" id="btnReset">Reset board</button>
+  </div>
+
+  <div id="aarModal" class="bk-modal" hidden>
+    <div class="bk-card bk-card-wide">
+      <div class="bk-head"><h2>Daily AAR / end-of-day summary</h2><button class="btn" id="aarClose">Close</button></div>
+      <p class="bk-sub">Auto-filled from today's board — accountability (by platoon), heat &amp; casualties, incidents, supply, medic, equipment. Fill in the <b>Significant activities / Sustain / Improve / Recommendations</b> sections, then copy or download for the record. Editing here does <b>not</b> change the board.</p>
+      <textarea id="aarBody" class="aar-text" spellcheck="true" aria-label="After-action report text"></textarea>
+      <div class="bk-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+        <button class="btn2" id="aarCopy">Copy</button>
+        <button class="btn" id="aarDownload">Download .txt</button>
+        <button class="btn" id="aarRegen" title="Rebuild from the current board (discards edits above)">Regenerate</button>
+      </div>
+    </div>
   </div>
 
   <div id="bkModal" class="bk-modal" hidden>
@@ -3938,12 +3954,10 @@ var qrcode = function() {
   const PLATOON_ALIASES={ "g-flex":["golf"], "pink power ranger":["pink power rangers"] };
   function platoonMatchSet(name){ const k=String(name||"").trim().toLowerCase(); const s=[k];
     if(PLATOON_ALIASES[k]) PLATOON_ALIASES[k].forEach(a=>s.push(String(a).trim().toLowerCase())); return s; }
-  function renderPlatoonAccount(){
-    const box=$("fmPlt"); if(!box) return;
+  function platoonAccountRows(){
     const roster=state.roster||[];
     const plats=(state.platoons||[]).map(p=>p&&p.name).filter(Boolean);
-    const matched={};
-    const rows=[];
+    const matched={}, rows=[];
     plats.forEach(name=>{
       const set=platoonMatchSet(name);
       let inN=0,tot=0,absN=0,outN=0;
@@ -3953,7 +3967,12 @@ var qrcode = function() {
     });
     let uIn=0,uTot=0,uAbs=0,uOut=0;
     roster.forEach((r,i)=>{ if(!matched[i]){ uTot++; if(r.status==="In") uIn++; else if(r.status==="Absent") uAbs++; else uOut++; } });
-    if(uTot>0) rows.push({name:"Unassigned", inN:uIn, tot:uTot, absN:uAbs, outN:uOut});
+    if(uTot>0) rows.push({name:"Staff", inN:uIn, tot:uTot, absN:uAbs, outN:uOut}); // anyone not in a platoon
+    return rows;
+  }
+  function renderPlatoonAccount(){
+    const box=$("fmPlt"); if(!box) return;
+    const rows=platoonAccountRows();
     if($("fmPltN")) $("fmPltN").textContent = rows.length ? String(rows.length)+(rows.length===1?" platoon":" platoons") : "";
     if(!rows.length){ box.innerHTML='<div class="fm-empty">No one on the roster yet — set each person&rsquo;s Group to their platoon.</div>'; return; }
     box.innerHTML=rows.map(x=>{
@@ -4536,7 +4555,92 @@ var qrcode = function() {
     try{ document.execCommand("copy"); done(); }catch(e){ alert(txt); }
     document.body.removeChild(ta);
   }
- 
+
+  // ---------- Daily AAR / end-of-day summary (auto-filled facts + prompts for the human parts) ----------
+  function aarText(){
+    const d=new Date(), L=[], line=s=>L.push(s==null?"":s);
+    line((state.campName||"CAMP").toUpperCase()+" — DAILY AAR / END-OF-DAY SUMMARY");
+    line("DTG: "+dtg(d));
+    if(state.day) line("CAMP DAY: "+state.day);
+    const who=[]; if(state.oic) who.push("OIC: "+state.oic); if(state.nco) who.push("TOC NCO: "+state.nco);
+    if(who.length) line(who.join("   "));
+    line("");
+
+    line("1. ACCOUNTABILITY");
+    if((state.roster||[]).length){
+      const rc=rosterCounts();
+      line("   ON GROUND: "+rc.in+"/"+rc.accountable+(rc.pct===null?"":" ("+rc.pct+"%)")+(rc.absent?" · "+rc.absent+" excused":""));
+      const rows=platoonAccountRows();
+      if(rows.length){ line("   BY PLATOON:");
+        rows.forEach(x=>line("     "+String(x.name||"").padEnd(20)+" "+x.inN+"/"+x.tot+" in"+(x.outN?" · "+x.outN+" out":"")+(x.absN?" · "+x.absN+" exc":""))); }
+      const notIn=state.roster.filter(r=>r.status!=="In"&&r.status!=="Absent");
+      if(notIn.length){ line("   NOT SIGNED IN:");
+        notIn.forEach(r=>line("     "+(String(r.name||"").trim()||"(unnamed)")+(String(r.group||"").trim()?" / "+r.group.trim():"")+(r.role?" ("+r.role+")":"")));
+      } else line("   All accounted for.");
+    } else { const pt=perstatTotals(); line("   ON GROUND: "+pt.pres+"/"+pt.asg+"  (roster empty — from PERSTAT)"); }
+    line("");
+
+    line("2. HEAT / SAFETY");
+    if(state.wbgt!=null&&state.wbgt!==""){ const c=heatCat(+state.wbgt);
+      line("   HEAT: "+c.name+" (WBGT "+Math.round(+state.wbgt)+"°F)"+(c.flag?" — "+c.flag:"")); }
+    else line("   HEAT: no WBGT reading set.");
+    { const hc=state.heatCas||[]; if(hc.length){ const stroke=hc.filter(c=>c.type==="Heat stroke").length;
+        line("   HEAT CASUALTIES: "+hc.length+(stroke?" ("+stroke+" HEAT STROKE)":""));
+        hc.forEach(c=>line("     "+(String(c.time||"").trim()||"----")+" "+(String(c.name||"").trim()||"(unnamed)")+" — "+(c.type||"")+(String(c.action||"").trim()?": "+c.action.trim():"")));
+      } else line("   HEAT CASUALTIES: none logged."); }
+    line("");
+
+    { const inc=state.incidents||[];
+      line("3. INCIDENTS ("+inc.length+")");
+      if(inc.length) inc.forEach((r,i)=>line("   "+(i+1)+". "+(String(r.time||"").trim()||"----")+" — "+(String(r.type||"").trim()||"(untyped)")+(String(r.remarks||"").trim()?" — "+r.remarks.trim():"")));
+      else line("   No incidents logged."); }
+    line("");
+
+    { const sr=state.supplyRequests||[]; const open=sr.filter(r=>r.status!=="Filled").length, filled=sr.filter(r=>r.status==="Filled").length;
+      line("4. SUPPLY REQUESTS ("+open+" open / "+filled+" filled)");
+      if(sr.length) sr.forEach(r=>line("   ["+(r.priority||"Routine")+"] "+(String(r.platoon||"").trim()||"?")+": "+(String(r.item||"").trim()||"(item)")+(String(r.qty||"").trim()?" x"+r.qty:"")+(String(r.notes||"").trim()?" — "+r.notes.trim():"")+"  ("+(r.status||"Open")+")"));
+      else line("   No supply requests."); }
+    line("");
+
+    { const mr=state.medicRequests||[]; const emer=mr.filter(r=>r.urgency==="Emergency").length, res=mr.filter(r=>String(r.status).toLowerCase()==="resolved").length;
+      line("5. MEDIC REQUESTS ("+mr.length+(emer?" · "+emer+" emergency":"")+" · "+res+" resolved)");
+      if(mr.length) mr.forEach(r=>line("   "+(String(r.time||"").trim()||"----")+" ["+(r.urgency||"Routine")+"] "+(r.category||"Medical")+(String(r.location||"").trim()?" @ "+r.location.trim():"")+(String(r.platoon||"").trim()?" ("+r.platoon.trim()+")":"")+" — "+(r.status||"New")+(String(r.by||"").trim()?" · "+r.by.trim():"")));
+      else line("   No medic requests."); }
+    line("");
+
+    { const gl=state.gsas||[], glOut=gl.filter(g=>String(g.holder||"").trim()).length;
+      const siWith=(state.sensitive||[]).filter(it=>(+it.qty||0)>0);
+      line("6. EQUIPMENT");
+      line("   "+String(state.gsaLabel||"GSAs").toUpperCase()+": "+gl.length+(gl.length?" ("+glOut+" signed out)":""));
+      if(siWith.length){ const siOK=siWith.every(it=>(+it.oh||0)===(+it.qty||0)), siQ=siWith.reduce((a,it)=>a+(+it.qty||0),0);
+        line("   SENSITIVE ITEMS: "+(siOK?"ALL ACCOUNTED ("+siQ+")":"DISCREPANCY")+(state.siCheck?" · last check "+state.siCheck:"")); } }
+    line("");
+
+    line("7. SIGNIFICANT ACTIVITIES / EVENTS"); line("   - "); line("");
+    line("8. SUSTAIN (what went well)"); line("   - "); line("");
+    line("9. IMPROVE (what to fix / do differently)"); line("   - "); line("");
+    line("10. RECOMMENDATIONS / REMARKS"); line("   - "); line("");
+    line("Prepared by: ______________________________");
+    return L.join("\n");
+  }
+  function openAar(){ $("aarBody").value=aarText(); $("aarModal").hidden=false; }
+  function closeAar(){ $("aarModal").hidden=true; }
+  $("btnAar").addEventListener("click",openAar);
+  $("aarClose").addEventListener("click",closeAar);
+  $("aarModal").addEventListener("click",e=>{ if(e.target===$("aarModal")) closeAar(); });
+  $("aarRegen").addEventListener("click",()=>{ $("aarBody").value=aarText(); });
+  $("aarCopy").addEventListener("click",()=>{
+    const txt=$("aarBody").value; const done=()=>{ const b=$("aarCopy"); const o=b.textContent; b.textContent="Copied ✓"; setTimeout(()=>b.textContent=o,1400); };
+    if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(done).catch(()=>fallbackCopy(txt,done)); } else fallbackCopy(txt,done);
+  });
+  $("aarDownload").addEventListener("click",()=>{
+    try{ const d=new Date(); const stamp=d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+"-"+pad(d.getHours())+pad(d.getMinutes());
+      const safe=(state.campName||"camp").replace(/[^a-z0-9]+/gi,"-").replace(/^-+|-+$/g,"").toLowerCase()||"camp";
+      const blob=new Blob([$("aarBody").value],{type:"text/plain"}); const a=document.createElement("a");
+      a.href=URL.createObjectURL(blob); a.download=safe+"-AAR-"+stamp+".txt"; document.body.appendChild(a); a.click();
+      setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},0); }catch(e){}
+  });
+
   $("btnPrint").addEventListener("click",()=>window.print());
 
   // ---------- board file: portable save / load between computers ----------
