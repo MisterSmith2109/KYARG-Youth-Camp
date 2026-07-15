@@ -446,6 +446,8 @@
   .fm-name{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:6px 10px;border:1px solid var(--line);border-radius:5px;background:var(--panel);font-size:14px}
   .fm-name .fm-when{color:var(--muted);font-size:11px;font-family:var(--mono);white-space:nowrap}
   .fm-empty{color:var(--muted);font-size:13px;padding:4px 2px}
+  .psg-docs-wrap{margin-top:14px;padding-top:14px;border-top:1px solid var(--line-soft)}
+  .pd-row{display:grid;grid-template-columns:minmax(120px,1fr) 2fr 28px;gap:8px;align-items:center;margin-bottom:8px}
   .fm-check{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px}
   .fm-check-k{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
   .fm-check input{width:140px;font-family:var(--mono)}
@@ -850,6 +852,12 @@
           <div class="panel-sub" id="medicLinkNote" style="margin:4px 0 8px">Opens the <b>medic dashboard</b> (<b>medic.html</b>) with the sync link filled in. Medic requests carry no camper medical details.</div>
           <button class="btn2" id="medicCopyLink">Copy Medic link</button>
         </div>
+      </div>
+      <div class="psg-docs-wrap">
+        <div class="psg-share-h">Field documents</div>
+        <div class="panel-sub" style="margin:4px 0 8px">Links shown on the PSG <b>Documents</b> button. Host each file somewhere access-controlled (e.g. Google Drive, &ldquo;anyone with the link&rdquo;) and paste its share link here. These links <b>sync privately over the sync link</b> &mdash; they are not stored in this app&rsquo;s public files, so keep sensitive docs (maps, plans) here rather than in the repo.</div>
+        <div id="psgDocsBody"></div>
+        <button class="add-btn" id="psgDocsAdd">+ Add document</button>
       </div>
     </div>
   </div>
@@ -3241,7 +3249,7 @@ var qrcode = function() {
     wbgt:null, wbgtAuto:true,
     volLabel:"Volunteers", vol:0,
     gsaLabel:"GSAs",
-    psgMsg:"", psgFormUrl:"", tocPhone:"",
+    psgMsg:"", psgFormUrl:"", tocPhone:"", psgDocs:[],
     perstat:[
       {label:"Cadre / Staff", asg:0, pres:0},
       {label:"Youth / Campers", asg:0, pres:0},
@@ -3329,6 +3337,7 @@ var qrcode = function() {
     if($("psgMsg")) $("psgMsg").value=state.psgMsg||"";
     if($("psgFormUrl")) $("psgFormUrl").value=state.psgFormUrl||"";
     if($("tocPhone")) $("tocPhone").value=state.tocPhone||"";
+    renderPsgDocs();
     const _st=$("soTitle"); if(_st) _st.textContent=state.campName||"";
   }
 
@@ -3347,7 +3356,7 @@ var qrcode = function() {
     feed:["feedUrl","feedAuto"],
     platoons:["platoons"],
     misc:["siCheck","perstat"],
-    psg:["psgMsg","psgFormUrl","tocPhone"]
+    psg:["psgMsg","psgFormUrl","tocPhone","psgDocs"]
   };
   let syncSeq=0, syncBase={};   // syncBase = last board the server gave us; we diff against it to tag our own edits
   function newId(){ return "i"+Date.now().toString(36)+"-"+(syncSeq++).toString(36)+Math.random().toString(36).slice(2,6); }
@@ -3472,6 +3481,21 @@ var qrcode = function() {
     if(btn) btn.disabled=false;
     try{ const qr=qrcode(0,"L"); qr.addData(link); qr.make(); box.innerHTML=qr.createSvgTag(4,2); }
     catch(e){ box.innerHTML=""; }
+  }
+  // Field documents the TOC curates (title + external link). Synced privately over the sync link;
+  // shown on the PSG Documents button. Kept off the public repo so sensitive files stay private.
+  function renderPsgDocs(){
+    const box=$("psgDocsBody"); if(!box) return;
+    const list=state.psgDocs||[];
+    box.innerHTML="";
+    list.forEach((d,i)=>{
+      const row=document.createElement("div"); row.className="pd-row";
+      row.innerHTML=
+        '<input class="row-label" data-pd="'+i+'" data-f="title" value="'+esc(d&&d.title)+'" placeholder="Title (e.g. Camp Map)">'+
+        '<input data-pd="'+i+'" data-f="url" value="'+esc(d&&d.url)+'" placeholder="https://… share link" inputmode="url">'+
+        '<button class="icon-btn" data-delpd="'+i+'" title="Remove">×</button>';
+      box.appendChild(row);
+    });
   }
   function medicShareLink(){
     let u=""; try{ u=localStorage.getItem(SYNC_KEY)||syncUrl||""; }catch(e){ u=syncUrl||""; }
@@ -4335,6 +4359,7 @@ var qrcode = function() {
     else if(t.dataset.hc!=null){ const c=state.heatCas[+t.dataset.hc]; if(c){ c[t.dataset.f]=t.value; save(); } }
     else if(t.dataset.sr!=null){ const c=state.supplyRequests[+t.dataset.sr]; if(c){ c[t.dataset.f]=t.value; save(); } }
     else if(t.dataset.rfi!=null){ const c=state.rfis[+t.dataset.rfi]; if(c){ c[t.dataset.f]=t.value; save(); } }
+    else if(t.dataset.pd!=null){ const c=(state.psgDocs||[])[+t.dataset.pd]; if(c){ c[t.dataset.f]=t.value; save(); } }
   });
   document.body.addEventListener("change",e=>{
     const t=e.target;
@@ -4352,6 +4377,7 @@ var qrcode = function() {
     else if(t.dataset.delhc!=null){ state.heatCas.splice(+t.dataset.delhc,1); renderHeatCas(); save(); }
     else if(t.dataset.delsr!=null){ state.supplyRequests.splice(+t.dataset.delsr,1); renderSupply(); save(); }
     else if(t.dataset.delrfi!=null){ state.rfis.splice(+t.dataset.delrfi,1); renderRfis(); save(); }
+    else if(t.dataset.delpd!=null){ (state.psgDocs||[]).splice(+t.dataset.delpd,1); renderPsgDocs(); save(); }
     else if(t.dataset.delros!=null){ state.roster.splice(+t.dataset.delros,1); renderRoster(); renderTiles(); save(); }
     else if(t.dataset.delsch!=null){ const s=curSched(); if(s) s.splice(+t.dataset.delsch,1); renderSchedule(); save(); }
     else if(t.dataset.cancelsch!=null){ const s=curSched(); if(s&&s[+t.dataset.cancelsch]){ const r=s[+t.dataset.cancelsch]; r.canceled=!r.canceled; } renderSchedule(); save(); }
@@ -4364,6 +4390,7 @@ var qrcode = function() {
   $("hcAdd").addEventListener("click",()=>{ state.heatCas.push({id:newId(),time:hhmmLocal(),name:"",type:"Heat exhaustion",action:""}); renderHeatCas(); save(); });
   $("supplyAdd").addEventListener("click",()=>{ state.supplyRequests.push({id:newId(),time:hhmmLocal(),platoon:"",priority:"Routine",item:"",qty:"",notes:"",status:"Open"}); renderSupply(); save(); });
   $("rfiAdd").addEventListener("click",()=>{ state.rfis.push({id:newId(),time:hhmmLocal(),platoon:"",kind:"RFI",text:"",status:"Open",answer:""}); renderRfis(); save(); });
+  $("psgDocsAdd").addEventListener("click",()=>{ state.psgDocs=state.psgDocs||[]; state.psgDocs.push({title:"",url:""}); renderPsgDocs(); save(); });
   $("wrStart").addEventListener("click",wrStart);
   $("wrStop").addEventListener("click",wrStop);
   $("wrSkip").addEventListener("click",()=>{ if(wr.running){ wrAdvance(); renderWR(); } });

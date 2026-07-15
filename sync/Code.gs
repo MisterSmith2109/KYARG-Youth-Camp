@@ -37,7 +37,7 @@ var SECTION_FIELDS = {
   feed:     ['feedUrl', 'feedAuto'],
   platoons: ['platoons'],
   misc:     ['siCheck', 'perstat'],
-  psg:      ['psgMsg', 'psgFormUrl', 'tocPhone']
+  psg:      ['psgMsg', 'psgFormUrl', 'tocPhone', 'psgDocs']
 };
 // Lists that merge per record (each record has an id + _m modified time).
 var LIST_KEYS = ['roster', 'incidents', 'sensitive', 'gsas', 'heatCas', 'supplyRequests', 'medicRequests', 'medicPlan', 'rfis'];
