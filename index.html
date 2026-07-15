@@ -191,6 +191,30 @@
   .bk-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;max-width:540px;width:100%;max-height:88vh;overflow:auto;padding:16px}
   .bk-card-wide{max-width:720px}
   .aar-text{width:100%;min-height:52vh;font-family:var(--mono);font-size:12px;line-height:1.5;white-space:pre;overflow:auto;background:var(--panel-2);border:1px solid var(--line-soft);border-radius:6px;color:var(--ink);padding:10px}
+  /* AAR — rendered document */
+  .aar-doc{max-height:60vh;overflow:auto;background:var(--panel-2);border:1px solid var(--line-soft);border-radius:8px;padding:18px 20px}
+  .aar-title{border-bottom:2px solid var(--olive);padding-bottom:12px;margin-bottom:6px}
+  .aar-camp{font-size:22px;font-weight:800;color:var(--ink);line-height:1.1}
+  .aar-dt{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--olive-bright);margin-top:4px}
+  .aar-metaline{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:6px;letter-spacing:.03em}
+  .aar-sec{margin:15px 0}
+  .aar-sec h3{display:flex;align-items:center;gap:9px;margin:0 0 8px;font-family:var(--mono);font-size:12px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink);font-weight:800}
+  .aar-num{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;background:linear-gradient(180deg,var(--olive-bright),var(--olive));color:#12140f;font-size:11px;font-weight:800;flex:none}
+  .aar-secbody{padding-left:29px}
+  .aar-line{font-size:13px;color:var(--ink);margin:3px 0;line-height:1.5}
+  .aar-line .k{color:var(--muted)}
+  .aar-big{font-family:var(--mono);font-weight:800;font-size:16px;color:var(--ink)}
+  .aar-chips{display:flex;flex-wrap:wrap;gap:6px;margin:7px 0}
+  .aar-chip{font-family:var(--mono);font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;border:1px solid var(--line-soft);background:var(--panel);color:var(--ink);white-space:nowrap}
+  .aar-chip.on{color:var(--green);border-color:rgba(95,174,90,.4)} .aar-chip.off{color:var(--steel);border-color:rgba(90,155,181,.4)} .aar-chip.warn{color:var(--amber);border-color:rgba(224,165,59,.4)} .aar-chip.dim{color:var(--muted)}
+  .aar-list{margin:5px 0 0;padding:0;list-style:none}
+  .aar-list li{font-size:12.5px;color:var(--ink);padding:2px 0 2px 13px;position:relative;line-height:1.45}
+  .aar-list li::before{content:"\203A";position:absolute;left:0;color:var(--olive-bright);font-weight:700}
+  .aar-empty{font-size:12.5px;color:var(--muted);font-style:italic}
+  .aar-heatbadge{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-weight:800;font-size:13px;padding:4px 12px;border-radius:6px;border:1px solid var(--line);background:var(--panel)}
+  .aar-heatbadge .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .aar-narr textarea{width:100%;min-height:54px;resize:vertical;font-family:var(--sans);font-size:13px;line-height:1.5;background:var(--panel);border:1px solid var(--line-soft);border-radius:6px;color:var(--ink);padding:8px}
+  .aar-prepared{margin-top:16px;padding-top:12px;border-top:1px solid var(--line-soft);font-family:var(--mono);font-size:12px;color:var(--muted)}
   .bk-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
   .bk-head h2{margin:0;font-size:18px}
   .bk-sub{color:var(--muted);font-size:13px;line-height:1.5;margin:8px 0 12px}
@@ -955,12 +979,14 @@
   <div id="aarModal" class="bk-modal" hidden>
     <div class="bk-card bk-card-wide">
       <div class="bk-head"><h2>Daily AAR / end-of-day summary</h2><button class="btn" id="aarClose">Close</button></div>
-      <p class="bk-sub">Auto-filled from today's board — accountability (by platoon), heat &amp; casualties, incidents, supply, medic, equipment. Fill in the <b>Significant activities / Sustain / Improve / Recommendations</b> sections, then copy or download for the record. Editing here does <b>not</b> change the board.</p>
-      <textarea id="aarBody" class="aar-text" spellcheck="true" aria-label="After-action report text"></textarea>
+      <p class="bk-sub">Auto-filled from today's board — accountability (by platoon), heat &amp; casualties, incidents, supply, medic, equipment. Fill in the <b>Significant activities / Sustain / Improve / Recommendations</b> fields below, then copy or download for the record. This does <b>not</b> change the board.</p>
+      <div id="aarDoc" class="aar-doc"></div>
+      <textarea id="aarBody" class="aar-text" spellcheck="true" aria-label="After-action report text" hidden></textarea>
       <div class="bk-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
         <button class="btn2" id="aarCopy">Copy</button>
         <button class="btn" id="aarDownload">Download .txt</button>
-        <button class="btn" id="aarRegen" title="Rebuild from the current board (discards edits above)">Regenerate</button>
+        <button class="btn" id="aarRegen" title="Rebuild from the current board">Regenerate</button>
+        <button class="btn" id="aarRaw" title="Toggle a plain-text view you can hand-edit before copying">View as text</button>
       </div>
     </div>
   </div>
@@ -4755,6 +4781,7 @@ var qrcode = function() {
   }
 
   // ---------- Daily AAR / end-of-day summary (auto-filled facts + prompts for the human parts) ----------
+  const aarNarr={sig:"",sustain:"",improve:"",rec:""}; // narrative fields typed into the AAR (session-local)
   function aarText(){
     const d=new Date(), L=[], line=s=>L.push(s==null?"":s);
     line((state.campName||"CAMP").toUpperCase()+" — DAILY AAR / END-OF-DAY SUMMARY");
@@ -4826,27 +4853,119 @@ var qrcode = function() {
         line("   SENSITIVE ITEMS: "+(siOK?"ALL ACCOUNTED ("+siQ+")":"DISCREPANCY")+(state.siCheck?" · last check "+state.siCheck:"")); } }
     line("");
 
-    line("8. SIGNIFICANT ACTIVITIES / EVENTS"); line("   - "); line("");
-    line("9. SUSTAIN (what went well)"); line("   - "); line("");
-    line("10. IMPROVE (what to fix / do differently)"); line("   - "); line("");
-    line("11. RECOMMENDATIONS / REMARKS"); line("   - "); line("");
+    [[8,"SIGNIFICANT ACTIVITIES / EVENTS","sig"],[9,"SUSTAIN (what went well)","sustain"],
+     [10,"IMPROVE (what to fix / do differently)","improve"],[11,"RECOMMENDATIONS / REMARKS","rec"]].forEach(x=>{
+      line(x[0]+". "+x[1]);
+      const v=String(aarNarr[x[2]]||"").trim();
+      if(v) v.split(/\r?\n/).forEach(ln=>{ ln=ln.trim(); if(ln) line("   - "+ln.replace(/^[-•]\s*/,"")); });
+      else line("   - ");
+      line("");
+    });
     line("Prepared by: ______________________________");
     return L.join("\n");
   }
-  function openAar(){ $("aarBody").value=aarText(); $("aarModal").hidden=false; }
+  // ---------- AAR rendered document (styled preview of the same facts aarText() exports) ----------
+  const AAR_HEATCOLOR={"heat-NA":"var(--muted)","heat-LOW":"var(--green)","heat-GREEN":"var(--green)","heat-YELLOW":"var(--amber)","heat-RED":"var(--red)","heat-BLACK":"var(--red)"};
+  function aarNameLine(r){ return (String(r.name||"").trim()||"(unnamed)")+(String(r.group||"").trim()?" / "+r.group.trim():"")+(r.role?" ("+r.role+")":""); }
+  function renderAarDoc(){
+    const doc=$("aarDoc"); if(!doc) return;
+    const d=new Date();
+    const sec=(n,t,inner)=>'<section class="aar-sec"><h3><span class="aar-num">'+n+'</span>'+esc(t)+'</h3><div class="aar-secbody">'+inner+'</div></section>';
+    const empty=t=>'<div class="aar-empty">'+esc(t)+'</div>';
+    const li=arr=>'<ul class="aar-list">'+arr.map(x=>'<li>'+x+'</li>').join("")+'</ul>';
+    let h='<div class="aar-title"><div class="aar-camp">'+esc(state.campName||"CAMP")+'</div>'+
+      '<div class="aar-dt">Daily AAR &middot; End-of-Day Summary</div>'+
+      '<div class="aar-metaline">DTG '+esc(dtg(d))+(state.day?" &nbsp;&middot;&nbsp; "+esc(state.day):"")+
+      (state.oic?" &nbsp;&middot;&nbsp; OIC "+esc(state.oic):"")+(state.nco?" &nbsp;&middot;&nbsp; TOC NCO "+esc(state.nco):"")+'</div></div>';
+
+    // 1 — Accountability
+    let a="";
+    if((state.roster||[]).length){
+      const rc=rosterCounts();
+      a+='<div class="aar-line"><span class="k">On ground:</span> <span class="aar-big">'+rc.in+'/'+rc.accountable+'</span>'+(rc.pct===null?"":' &nbsp;'+rc.pct+'%')+'</div>';
+      a+='<div class="aar-chips"><span class="aar-chip on">'+rc.in+' in</span>'+
+        (rc.offsite?'<span class="aar-chip off">'+rc.offsite+' off-site</span>':"")+
+        (rc.out?'<span class="aar-chip warn">'+rc.out+' out</span>':"")+
+        (rc.departed?'<span class="aar-chip dim">'+rc.departed+' departed</span>':"")+
+        (rc.absent?'<span class="aar-chip dim">'+rc.absent+' excused</span>':"")+'</div>';
+      const rows=platoonAccountRows();
+      if(rows.length) a+='<div class="aar-chips">'+rows.map(x=>'<span class="aar-chip">'+esc(x.name)+' '+x.inN+'/'+x.tot+(x.offN?' &middot; '+x.offN+' off':"")+(x.outN?' &middot; '+x.outN+' out':"")+'</span>').join("")+'</div>';
+      const off=state.roster.filter(r=>r.status==="Off-site");
+      const notin=state.roster.filter(r=>{const s=r.status;return s!=="In"&&s!=="Off-site"&&s!=="Departed"&&s!=="Absent";});
+      const dep=state.roster.filter(r=>r.status==="Departed");
+      if(off.length) a+='<div class="aar-line"><span class="k">Off-site (accounted, off property):</span></div>'+li(off.map(r=>esc(aarNameLine(r))));
+      if(notin.length) a+='<div class="aar-line"><span class="k">Not signed in:</span></div>'+li(notin.map(r=>esc(aarNameLine(r))));
+      else if(!off.length) a+='<div class="aar-line" style="color:var(--green)">All accounted for.</div>';
+      if(dep.length) a+='<div class="aar-line"><span class="k">Departed (done with camp):</span></div>'+li(dep.map(r=>esc(aarNameLine(r))+(String(r.last||"").trim()?' <span class="k">&mdash; '+esc(r.last.trim())+'</span>':"")));
+    } else { const pt=perstatTotals(); a+='<div class="aar-line"><span class="k">On ground:</span> <span class="aar-big">'+pt.pres+'/'+pt.asg+'</span> <span class="k">(roster empty &mdash; from PERSTAT)</span></div>'; }
+    h+=sec(1,"Accountability",a);
+
+    // 2 — Heat / Safety
+    const wb=(state.wbgt!=null&&state.wbgt!=="")?+state.wbgt:null, hc0=heatCat(wb), col=AAR_HEATCOLOR[hc0.cls]||"var(--muted)";
+    let a2=(wb!=null)
+      ? '<div class="aar-heatbadge" style="border-color:'+col+'"><span class="dot" style="background:'+col+'"></span>'+esc(hc0.name)+' &middot; WBGT '+Math.round(wb)+'&deg;F'+(hc0.flag?' &middot; '+esc(hc0.flag):"")+'</div>'
+      : empty("No WBGT reading set.");
+    const hcas=state.heatCas||[];
+    if(hcas.length){ const stroke=hcas.filter(c=>c.type==="Heat stroke").length;
+      a2+='<div class="aar-line" style="margin-top:8px"><span class="k">Casualties:</span> <b>'+hcas.length+'</b>'+(stroke?' <span style="color:var(--red)">('+stroke+' heat stroke)</span>':"")+'</div>'+
+        li(hcas.map(c=>esc((String(c.time||"").trim()||"----")+" "+(String(c.name||"").trim()||"(unnamed)")+" — "+(c.type||"")+(String(c.action||"").trim()?": "+c.action.trim():""))));
+    } else a2+='<div class="aar-line" style="margin-top:7px"><span class="k">Casualties:</span> none logged.</div>';
+    h+=sec(2,"Heat / Safety",a2);
+
+    // 3 — Incidents
+    const inc=state.incidents||[];
+    h+=sec(3,"Incidents ("+inc.length+")", inc.length?li(inc.map(r=>esc((String(r.time||"").trim()||"----")+" — "+(String(r.type||"").trim()||"(untyped)")+(String(r.remarks||"").trim()?" — "+r.remarks.trim():"")))):empty("No incidents logged."));
+
+    // 4 — Supply
+    const sr=state.supplyRequests||[], sopen=sr.filter(r=>r.status!=="Filled").length, sfill=sr.filter(r=>r.status==="Filled").length;
+    h+=sec(4,"Supply Requests ("+sopen+" open / "+sfill+" filled)", sr.length?li(sr.map(r=>'<b>['+esc(r.priority||"Routine")+']</b> '+esc((String(r.platoon||"").trim()||"?")+": "+(String(r.item||"").trim()||"(item)")+(String(r.qty||"").trim()?" x"+r.qty:"")+(String(r.notes||"").trim()?" — "+r.notes.trim():""))+' <span class="k">('+esc(r.status||"Open")+')</span>')):empty("No supply requests."));
+
+    // 5 — Medic
+    const mr=state.medicRequests||[], emer=mr.filter(r=>r.urgency==="Emergency").length, mres=mr.filter(r=>String(r.status).toLowerCase()==="resolved").length;
+    h+=sec(5,"Medic Requests ("+mr.length+(emer?" · "+emer+" emergency":"")+" · "+mres+" resolved)", mr.length?li(mr.map(r=>esc((String(r.time||"").trim()||"----")+" ["+(r.urgency||"Routine")+"] "+(r.category||"Medical")+(String(r.location||"").trim()?" @ "+r.location.trim():"")+(String(r.platoon||"").trim()?" ("+r.platoon.trim()+")":"")+" — "+(r.status||"New")))):empty("No medic requests."));
+
+    // 6 — RFIs
+    const rf=state.rfis||[], ropen=rf.filter(r=>r.status==="Open").length;
+    h+=sec(6,"RFIs & Suggestions ("+rf.length+(rf.length?" · "+ropen+" open":"")+")", rf.length?li(rf.map(r=>'<b>['+esc(r.kind||"RFI")+']</b> '+esc((String(r.platoon||"").trim()||"?")+": "+(String(r.text||"").trim()||"(none)")+" — "+(r.status||"Open")+(String(r.answer||"").trim()?" · resp: "+r.answer.trim():"")))):empty("No RFIs or suggestions."));
+
+    // 7 — Equipment
+    const gl=state.gsas||[], glOut=gl.filter(g=>String(g.holder||"").trim()).length, siWith=(state.sensitive||[]).filter(it=>(+it.qty||0)>0);
+    let a7='<div class="aar-line"><span class="k">'+esc(String(state.gsaLabel||"GSAs").toUpperCase())+':</span> '+gl.length+(gl.length?" ("+glOut+" signed out)":"")+'</div>';
+    if(siWith.length){ const siOK=siWith.every(it=>(+it.oh||0)===(+it.qty||0)), siQ=siWith.reduce((s,it)=>s+(+it.qty||0),0);
+      a7+='<div class="aar-line"><span class="k">Sensitive items:</span> '+(siOK?'<span style="color:var(--green)">All accounted ('+siQ+')</span>':'<span style="color:var(--red)">DISCREPANCY</span>')+(state.siCheck?' <span class="k">&middot; last check '+esc(state.siCheck)+'</span>':"")+'</div>'; }
+    h+=sec(7,"Equipment",a7);
+
+    // 8–11 narrative (editable, feed the text export)
+    const narr=(n,t,key,ph)=>'<section class="aar-sec aar-narr"><h3><span class="aar-num">'+n+'</span>'+esc(t)+'</h3><div class="aar-secbody"><textarea data-aar="'+key+'" placeholder="'+esc(ph)+'">'+esc(aarNarr[key]||"")+'</textarea></div></section>';
+    h+=narr(8,"Significant Activities / Events","sig","Key events of the day…");
+    h+=narr(9,"Sustain (what went well)","sustain","What worked — keep doing it…");
+    h+=narr(10,"Improve (what to fix)","improve","What to fix or do differently…");
+    h+=narr(11,"Recommendations / Remarks","rec","Recommendations for tomorrow / higher…");
+    h+='<div class="aar-prepared">Prepared by: ______________________________</div>';
+    doc.innerHTML=h;
+  }
+  let aarRawMode=false;
+  function aarSource(){ return aarRawMode?$("aarBody").value:aarText(); }
+  function openAar(){ aarRawMode=false; renderAarDoc(); $("aarDoc").hidden=false; $("aarBody").hidden=true; $("aarRaw").textContent="View as text"; $("aarModal").hidden=false; }
   function closeAar(){ $("aarModal").hidden=true; }
   $("btnAar").addEventListener("click",openAar);
   $("aarClose").addEventListener("click",closeAar);
   $("aarModal").addEventListener("click",e=>{ if(e.target===$("aarModal")) closeAar(); });
-  $("aarRegen").addEventListener("click",()=>{ $("aarBody").value=aarText(); });
+  $("aarDoc").addEventListener("input",e=>{ const k=e.target&&e.target.dataset?e.target.dataset.aar:null; if(k&&aarNarr.hasOwnProperty(k)) aarNarr[k]=e.target.value; });
+  $("aarRaw").addEventListener("click",()=>{
+    aarRawMode=!aarRawMode;
+    if(aarRawMode){ $("aarBody").value=aarText(); $("aarBody").hidden=false; $("aarDoc").hidden=true; $("aarRaw").textContent="Back to preview"; }
+    else { renderAarDoc(); $("aarDoc").hidden=false; $("aarBody").hidden=true; $("aarRaw").textContent="View as text"; }
+  });
+  $("aarRegen").addEventListener("click",()=>{ if(aarRawMode) $("aarBody").value=aarText(); else renderAarDoc(); });
   $("aarCopy").addEventListener("click",()=>{
-    const txt=$("aarBody").value; const done=()=>{ const b=$("aarCopy"); const o=b.textContent; b.textContent="Copied ✓"; setTimeout(()=>b.textContent=o,1400); };
+    const txt=aarSource(); const done=()=>{ const b=$("aarCopy"); const o=b.textContent; b.textContent="Copied ✓"; setTimeout(()=>b.textContent=o,1400); };
     if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(done).catch(()=>fallbackCopy(txt,done)); } else fallbackCopy(txt,done);
   });
   $("aarDownload").addEventListener("click",()=>{
     try{ const d=new Date(); const stamp=d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+"-"+pad(d.getHours())+pad(d.getMinutes());
       const safe=(state.campName||"camp").replace(/[^a-z0-9]+/gi,"-").replace(/^-+|-+$/g,"").toLowerCase()||"camp";
-      const blob=new Blob([$("aarBody").value],{type:"text/plain"}); const a=document.createElement("a");
+      const blob=new Blob([aarSource()],{type:"text/plain"}); const a=document.createElement("a");
       a.href=URL.createObjectURL(blob); a.download=safe+"-AAR-"+stamp+".txt"; document.body.appendChild(a); a.click();
       setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},0); }catch(e){}
   });
