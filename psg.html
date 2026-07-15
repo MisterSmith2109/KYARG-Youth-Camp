@@ -60,6 +60,8 @@
   .pill.next{background:var(--panel-2);color:var(--olive-bright);border:1px solid var(--line)}
   .next-act{font-size:19px;font-weight:700;margin:5px 0 2px}
   .muted{color:var(--muted)}
+  .cd{font-size:13px;font-weight:700;letter-spacing:.02em;color:var(--olive-bright);margin-top:4px}
+  .cd:empty{display:none}
 
   /* heat */
   .heat{border:none;padding:0;overflow:hidden}
@@ -76,6 +78,11 @@
   .heat-NA{background:var(--panel-2);color:var(--muted)} .heat-LOW{background:var(--panel-2);color:var(--olive-bright)}
   .heat-GREEN{background:var(--green);color:#0f1a0e} .heat-YELLOW{background:var(--amber);color:#241a05}
   .heat-RED{background:var(--red);color:#2a0d08} .heat-BLACK{background:#15160f;color:#e9ead9;border-bottom:1px solid var(--line)}
+  /* high-heat escalation (CAT 4/5) */
+  .card.heat.esc{box-shadow:0 0 0 2px var(--red),0 0 16px -2px var(--red);animation:heatpulse 2.2s ease-in-out infinite}
+  @keyframes heatpulse{0%,100%{box-shadow:0 0 0 2px var(--red),0 0 14px -4px var(--red)}50%{box-shadow:0 0 0 2px var(--red),0 0 22px 1px var(--red)}}
+  .heat-warn{display:none;background:#2a0d08;color:#ffcaba;font-weight:800;font-size:14px;letter-spacing:.02em;padding:10px 15px;border-top:1px solid var(--red);text-align:center}
+  .card.heat.esc .heat-warn{display:block}
 
   /* work/rest timer */
   .wr{display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap}
@@ -94,7 +101,8 @@
   .abtn.report{background:#2a1410;border-color:var(--red);color:#ffd9d1}
   .abtn.call{background:#10231a;border-color:var(--green);color:#cdeccd}
   .abtn.notes{background:#231e10;border-color:var(--amber);color:#f0d9a6}
-  .abtn.medic{grid-column:1/-1;background:#2a1008;border-color:var(--red);color:#ffcaba}
+  .abtn.medic{grid-column:1/-1;background:#2a1008;border-color:var(--red);color:#ffcaba;min-height:82px;font-size:18px;border-width:2px;box-shadow:0 0 14px -6px var(--red)}
+  .abtn .abtn-sub{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.8;margin-top:1px}
   .abtn.supply{grid-column:1/-1;background:#16202b;border-color:#5a7d8c;color:#cfe3ef}
   .abtn.rfi{grid-column:1/-1;background:#122423;border-color:#4a8c86;color:#c6e8e4}
   .abtn.roster{background:#1f1a2b;border-color:#8a76a8;color:#dccff0}
@@ -230,6 +238,7 @@
     <div class="now-act" id="nowAct">—</div>
     <div class="now-loc" id="nowLoc"></div>
     <div class="now-time" id="nowTime"></div>
+    <div class="cd mono" id="nowCd"></div>
   </div>
 
   <div class="card">
@@ -237,6 +246,7 @@
     <div class="next-act" id="nextAct">—</div>
     <div class="now-loc" id="nextLoc"></div>
     <div class="now-time" id="nextTime"></div>
+    <div class="cd mono" id="nextCd"></div>
   </div>
 
   <div class="card heat">
@@ -257,12 +267,13 @@
       </div>
       <div class="g-v muted" id="wrRec" style="margin-top:8px;font-size:13px"></div>
     </div>
+    <div class="heat-warn" id="heatWarn"></div>
   </div>
 
   <div class="actions">
+    <button class="abtn medic" id="btnMedic"><span class="ico">🚑</span>Request Medic<span class="abtn-sub" id="medicSub">medical emergency &rarr; sends now</span></button>
     <button class="abtn report" id="btnReport"><span class="ico">📝</span>Report to TOC</button>
     <button class="abtn notes" id="btnNotes"><span class="ico">🗒️</span>Notes</button>
-    <button class="abtn medic" id="btnMedic"><span class="ico">🚑</span>Request Medic</button>
     <button class="abtn supply" id="btnSupply"><span class="ico">📦</span>Supply Request</button>
     <button class="abtn rfi" id="btnRfi"><span class="ico">❓</span>RFI / Suggestion</button>
     <button class="abtn roster" id="btnRoster"><span class="ico">👥</span>Platoon Roster</button>
@@ -668,13 +679,11 @@
     if(msg){ $("annText").textContent=msg; $("annCard").classList.remove("hide"); }
     else $("annCard").classList.add("hide");
 
-    // now / next
-    var rows=todayRows(), nn=nowNext(rows);
-    if(!b||!b.platoons){ $("nowAct").textContent="Connect to see the schedule"; $("nowLoc").textContent=""; $("nowTime").textContent=""; }
-    else if(nn.cur){ $("nowAct").textContent=nn.cur.activity||"—"; $("nowLoc").textContent=nn.cur.loc||""; $("nowTime").textContent=fmtRange(nn.cur); }
-    else { $("nowAct").textContent="No activity right now"; $("nowLoc").textContent=""; $("nowTime").textContent=""; }
-    if(nn.next){ $("nextAct").textContent=nn.next.activity||"—"; $("nextLoc").textContent=nn.next.loc||""; $("nextTime").textContent=fmtRange(nn.next); }
-    else { $("nextAct").textContent=b&&b.platoons?"Nothing left today":"—"; $("nextLoc").textContent=""; $("nextTime").textContent=""; }
+    // now / next — text + live countdowns (also refreshed every second by updateTimers)
+    var rows=todayRows();
+    if(!b||!b.platoons){ $("nowAct").textContent="Connect to see the schedule"; $("nowLoc").textContent=""; $("nowTime").textContent=""; $("nowCd").textContent="";
+      $("nextAct").textContent="—"; $("nextLoc").textContent=""; $("nextTime").textContent=""; $("nextCd").textContent=""; }
+    else updateTimers();
 
     // heat
     var cat=heatCat(b?b.wbgt:null);
@@ -682,6 +691,11 @@
     $("heatCat").textContent=cat.name; $("heatFlag").textContent=cat.flag;
     $("heatWbgt").textContent=(b&&b.wbgt!=null&&b.wbgt!=="")?Math.round(+b.wbgt):"--";
     $("heatWater").textContent=cat.water; $("heatWork").textContent=cat.work;
+    var heatCard=document.querySelector(".card.heat"), hiHeat=(cat===HEATCATS.C4||cat===HEATCATS.C5);
+    if(heatCard) heatCard.classList.toggle("esc", hiHeat);
+    var hw=$("heatWarn"); if(hw) hw.textContent = hiHeat ? (cat===HEATCATS.C5
+      ? "⚠ CAT 5 — suspend all outdoor activity. Shade / A‑C + hydrate."
+      : "⚠ CAT 4 — suspend strenuous activity. Shade + water; watch for heat illness.") : "";
     $("wrRec").textContent = cat.wr ? ("Recommended: "+cat.wr.work+" min active / "+cat.wr.rest+" min rest · water "+cat.hydr)
       : (cat===HEATCATS.C5?"Category 5 — suspend outdoor activity.":(cat===HEATCATS.NA?"":"No cycle needed — keep water available."));
     if($("wrBtn")) $("wrBtn").style.display = cat.wr ? "" : "none";
@@ -711,6 +725,19 @@
     if(!$("setup").classList.contains("hide")) fillSetupPlatoons();
   }
   function fmtRange(r){ if(!r||!r.rng) return ""; return to12(r.rng.start)+(r.rng.end!=null&&r.end!==r.rng.start?" – "+to12(r.end):""); }
+  function fmtIn(mins){ if(mins<1) return "under a min"; if(mins<60) return mins+" min"; var h=Math.floor(mins/60), m=mins%60; return h+"h"+(m?" "+m+"m":""); }
+  // Live now/next + countdowns; safe to call every second (recomputes from the clock).
+  function updateTimers(){
+    var c=campNow(); if($("hTime")) $("hTime").textContent=pad(c.h)+":"+pad(c.m);
+    var b=state.board; if(!b||!b.platoons) return;
+    var rows=todayRows(), nn=nowNext(rows), now=nowMin();
+    if(nn.cur){ $("nowAct").textContent=nn.cur.activity||"—"; $("nowLoc").textContent=nn.cur.loc||""; $("nowTime").textContent=fmtRange(nn.cur);
+      $("nowCd").textContent=(nn.cur.end!=null&&nn.cur.end>now)?("ends in "+fmtIn(nn.cur.end-now)):""; }
+    else { $("nowAct").textContent="No activity right now"; $("nowLoc").textContent=""; $("nowTime").textContent=""; $("nowCd").textContent=""; }
+    if(nn.next){ $("nextAct").textContent=nn.next.activity||"—"; $("nextLoc").textContent=nn.next.loc||""; $("nextTime").textContent=fmtRange(nn.next);
+      $("nextCd").textContent=(nn.next.rng.start>now)?("starts in "+fmtIn(nn.next.rng.start-now)):""; }
+    else { $("nextAct").textContent="Nothing left today"; $("nextLoc").textContent=""; $("nextTime").textContent=""; $("nextCd").textContent=""; }
+  }
   function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 
   // ---------- pre-event alert (10 min before the next activity) ----------
@@ -1170,7 +1197,7 @@
   $("evtAlertX").addEventListener("click",function(){ dismissedKey=shownKey; $("evtAlert").classList.add("hide"); });
 
   // clock tick — also drives the minute-accurate pre-event alert
-  setInterval(function(){ var c=campNow(); $("hTime").textContent=pad(c.h)+":"+pad(c.m); if(wr.running) renderWR(); checkEventAlert(); },1000);
+  setInterval(function(){ updateTimers(); if(wr.running) renderWR(); checkEventAlert(); },1000);
 
   // Pre-fill from a shared link: psg.html?sync=<exec url>&platoon=<name>. Saves it, then
   // cleans the address bar so the sync link isn't left sitting in the URL.
