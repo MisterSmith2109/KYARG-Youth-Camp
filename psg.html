@@ -132,6 +132,11 @@
   .abtn.disabled{opacity:.4;pointer-events:none}
   /* My supply requests (local history + live status) */
   .myreq{padding:12px 14px}
+  .myreq.hasnew{animation:replypulse 1.4s ease-in-out 3}
+  @keyframes replypulse{0%,100%{box-shadow:0 0 0 2px var(--olive-bright),0 0 12px -4px var(--olive-bright)}50%{box-shadow:0 0 0 2px var(--olive-bright),0 0 22px 0 var(--olive-bright)}}
+  .mr-reply{display:none;font-family:var(--mono);font-size:11px;font-weight:800;letter-spacing:.05em;color:var(--olive-bright)}
+  .myreq.hasnew .mr-reply{display:inline}
+  .mr-row.mr-new{background:rgba(168,184,106,.09);border-radius:8px;margin:0 -6px;padding-left:6px;padding-right:6px}
   .mr-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
   .mr-clear{background:none;border:none;color:var(--muted);text-decoration:underline;font-size:12px;padding:4px 2px}
   .mr-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line-soft)}
@@ -281,7 +286,7 @@
   </div>
 
   <div class="card myreq hide" id="myReqCard">
-    <div class="mr-head"><span class="k" id="mrTitle">sent to TOC</span></div>
+    <div class="mr-head"><span class="k" id="mrTitle">sent to TOC</span><span class="mr-reply" id="mrReply">↩ TOC replied</span></div>
     <div id="myReqList"></div>
   </div>
 
@@ -878,16 +883,52 @@
     out.sort(function(a,b){ return (b.when||0)-(a.when||0); }); // newest first
     return out;
   }
+  // A feed item is a "TOC reply" once the TOC acts on it: RFI answered/closed,
+  // medic request advanced past New, or a supply request filled.
+  var LS_REPLIES="kyarng-psg-replies";
+  function replySig(v){
+    if(!v||!v.status||v.status[0]==="pending") return null;
+    if(v.kind==="rfi" && v.status[0]==="filled") return "rf:"+v.id+":"+v.status[1];   // Answered / Closed
+    if(v.kind==="medic" && v.status[0]!=="open") return "md:"+v.id+":"+v.status[1];   // acknowledged / en route / resolved
+    if(v.kind==="supply" && v.status[0]==="filled") return "sr:"+v.id;
+    return null;
+  }
+  var newReplyIds={};
+  function checkReplies(feed){
+    var raw=null; try{ raw=localStorage.getItem(LS_REPLIES); }catch(e){}
+    var firstRun=(raw===null), seen={};
+    if(raw){ try{ JSON.parse(raw).forEach(function(s){ seen[s]=1; }); }catch(e){} }
+    var fresh=[]; newReplyIds={};
+    feed.forEach(function(v){ var s=replySig(v); if(!s) return; if(!seen[s]){ fresh.push(v); newReplyIds[v.id]=1; } seen[s]=1; });
+    // Accumulate seen signatures (once acknowledged, stay acknowledged) so a stale
+    // cached board rendering before a pull can't wipe the memory and re-notify.
+    try{ localStorage.setItem(LS_REPLIES, JSON.stringify(Object.keys(seen).slice(-500))); }catch(e){}
+    if(fresh.length && !firstRun) notifyReplies(fresh); // never burst on the first load
+  }
+  function notifyReplies(fresh){
+    try{ beep(); }catch(e){}
+    try{ if(navigator.vibrate) navigator.vibrate([120,60,120]); }catch(e){}
+    var card=$("myReqCard"); if(card){ card.classList.add("hasnew"); setTimeout(function(){ card.classList.remove("hasnew"); },7000); }
+    if(pushOk()){
+      try{ var v=fresh[0];
+        var head=fresh.length>1 ? (fresh.length+" TOC replies")
+          : v.kind==="rfi" ? ((v.tag==="SUGGEST"?"Suggestion ":"RFI ")+String(v.status[1]).toLowerCase())
+          : v.kind==="medic" ? ("Medic — "+v.status[1]) : "Supply filled";
+        new Notification((state.platoon?state.platoon+" · ":"")+head, {body:(v.title||"")+(v.sub?" — "+v.sub:""), tag:"toc-reply", renotify:true});
+      }catch(e){}
+    }
+  }
   function renderSent(){
     var card=$("myReqCard"), list=$("myReqList"), title=$("mrTitle"); if(!card||!list) return;
     var feed=platoonFeed();
     if(title) title.textContent=(state.platoon?state.platoon+" — ":"")+"sent to TOC";
     if(!feed.length){ card.classList.add("hide"); list.innerHTML=""; return; }
+    checkReplies(feed); // detect + notify on new TOC replies (sets newReplyIds for row highlight)
     card.classList.remove("hide");
     list.innerHTML="";
     feed.forEach(function(v){
       var meta=[v.time, v.pri, v.sub].filter(Boolean).join(" · ");
-      var d=document.createElement("div"); d.className="mr-row";
+      var d=document.createElement("div"); d.className="mr-row"+(newReplyIds[v.id]?" mr-new":"");
       d.innerHTML='<div class="mr-main"><div class="mr-item">'+
         '<span class="mr-tag '+v.kind+'">'+v.tag+'</span> '+esc(v.title)+
         (v.qty?' <span class="muted">×'+esc(v.qty)+'</span>':'')+'</div>'+
