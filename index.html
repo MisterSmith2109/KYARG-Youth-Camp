@@ -159,8 +159,9 @@
   .add-btn:hover{border-color:var(--olive-bright);background:#262b1d}
  
   /* Incident log */
-  .inc-row{display:grid;grid-template-columns:150px 0.8fr 2.4fr 28px;gap:8px;align-items:center;margin-bottom:8px}
+  .inc-row{display:grid;grid-template-columns:150px 0.8fr 2.4fr 28px;gap:8px;align-items:start;margin-bottom:8px}
   .inc-row .t{font-family:var(--mono);font-size:12px}
+  .inc-row .rm{line-height:1.4;min-height:32px;overflow:hidden;resize:vertical;white-space:pre-wrap;word-break:break-word}
   .inc-empty{color:var(--muted);font-family:var(--mono);font-size:13px;padding:8px 2px}
  
   /* Toolbar */
@@ -3838,11 +3839,13 @@ var qrcode = function() {
       row.innerHTML=
         '<input class="t" data-inc="'+i+'" data-f="time" value="'+esc(r.time)+'" placeholder="DTG">'+
         '<input data-inc="'+i+'" data-f="type" value="'+esc(r.type)+'" placeholder="Type (injury, missing, etc.)">'+
-        '<input data-inc="'+i+'" data-f="remarks" value="'+esc(r.remarks)+'" placeholder="Remarks / action taken / status">'+
+        '<textarea class="rm" data-inc="'+i+'" data-f="remarks" rows="1" placeholder="Remarks / action taken / status">'+esc(r.remarks)+'</textarea>'+
         '<button class="icon-btn" data-delinc="'+i+'" title="Remove">\u00d7</button>';
       b.appendChild(row);
     });
+    b.querySelectorAll("textarea.rm").forEach(autoGrowRm); // fit each remarks box to its text
   }
+  function autoGrowRm(el){ el.style.height="auto"; el.style.height=(el.scrollHeight+2)+"px"; }
  
   function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
  
@@ -4184,7 +4187,7 @@ var qrcode = function() {
   // delegated table edits
   document.body.addEventListener("input",e=>{
     const t=e.target;
-    if(t.dataset.inc!=null){ state.incidents[+t.dataset.inc][t.dataset.f]=t.value; save(); }
+    if(t.dataset.inc!=null){ state.incidents[+t.dataset.inc][t.dataset.f]=t.value; if(t.tagName==="TEXTAREA") autoGrowRm(t); save(); }
     else if(t.dataset.ros!=null){ state.roster[+t.dataset.ros][t.dataset.f]=t.value; save(); }
     else if(t.dataset.sch!=null){ const s=curSched(); if(s&&s[+t.dataset.sch]) s[+t.dataset.sch][t.dataset.f]=t.value; if(t.dataset.f==="time") refreshSchedStatuses(); save(); }
     else if(t.dataset.si!=null){ const it=state.sensitive[+t.dataset.si]; const f=t.dataset.f; it[f]=(f==="name")?t.value:(+t.value||0); if(f!=="name") refreshSi(); save(); }
