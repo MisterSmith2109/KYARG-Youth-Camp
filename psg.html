@@ -107,7 +107,9 @@
   .ros-role{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:1px}
   .ros-st{font-family:var(--mono);font-size:10px;font-weight:800;letter-spacing:.06em;padding:4px 9px;border-radius:20px;flex:none}
   .ros-st.in{background:var(--green);color:#0f1a0e}
+  .ros-st.offsite{background:#5a9bb5;color:#04141b}
   .ros-st.out{background:var(--panel-2);color:var(--muted);border:1px solid var(--line)}
+  .ros-st.departed{background:#5a5560;color:#e9ead9}
   .ros-st.absent{background:var(--amber);color:#241a05}
   #rosList{max-height:52vh;overflow-y:auto}
   /* documents list */
@@ -1125,7 +1127,7 @@
   var ROLE_ORDER={psg:0,apsg:1,camper:2,staff:3,support:4};
   function isStaffRole(role){ role=String(role||"").trim().toLowerCase(); return role==="staff"||role==="support"; }
   function roleRank(role){ var k=String(role||"").trim().toLowerCase(); return (k in ROLE_ORDER)?ROLE_ORDER[k]:2; }
-  function rosterStatus(s){ s=String(s||"").trim().toLowerCase(); if(s==="in") return ["in","IN"]; if(s==="absent") return ["absent","ABS"]; return ["out","OUT"]; }
+  function rosterStatus(s){ s=String(s||"").trim().toLowerCase(); if(s==="in") return ["in","IN"]; if(s==="off-site"||s==="offsite") return ["offsite","OFF"]; if(s==="departed") return ["departed","DONE"]; if(s==="absent") return ["absent","ABS"]; return ["out","OUT"]; }
   function allPlatoonGroupNames(){ // every group value that maps to some platoon on the board
     var s={}; ((state.board&&state.board.platoons)||[]).forEach(function(p){ if(p&&p.name) platoonMatchNames(p.name).forEach(function(n){ s[n]=1; }); }); return s;
   }
