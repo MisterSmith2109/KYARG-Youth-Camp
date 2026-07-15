@@ -452,6 +452,35 @@
   .fm-name{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:6px 10px;border:1px solid var(--line);border-radius:5px;background:var(--panel);font-size:14px}
   .fm-name .fm-when{color:var(--muted);font-size:11px;font-family:var(--mono);white-space:nowrap}
   .fm-empty{color:var(--muted);font-size:13px;padding:4px 2px}
+  /* PERSTAT — personnel status */
+  .ps-hero{display:flex;flex-wrap:wrap;align-items:center;gap:22px;padding:16px 18px;margin-bottom:14px;border:1px solid var(--line);border-radius:8px;background:linear-gradient(180deg,rgba(168,184,106,.07),rgba(0,0,0,0))}
+  .ps-hero.ok{border-color:rgba(95,174,90,.55)} .ps-hero.warn{border-color:rgba(224,165,59,.55)}
+  .ps-hero-pct{display:flex;flex-direction:column;gap:3px;min-width:118px}
+  .ps-hero-pct span{font-family:var(--mono);font-size:40px;font-weight:800;line-height:.95;color:var(--ink);font-variant-numeric:tabular-nums}
+  .ps-hero.ok .ps-hero-pct span{color:var(--green)} .ps-hero.warn .ps-hero-pct span{color:var(--amber)}
+  .ps-hero-pct label{font-family:var(--mono);font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted)}
+  .ps-hero-mid{flex:1;min-width:220px;display:flex;flex-direction:column;gap:9px}
+  .ps-legend{display:flex;flex-wrap:wrap;gap:16px}
+  .ps-legend .lg{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .ps-legend .lg::before{content:"";width:10px;height:10px;border-radius:2px;background:var(--muted)}
+  .ps-legend .lg.pres::before{background:var(--green)} .ps-legend .lg.off::before{background:var(--steel)} .ps-legend .lg.gap::before{background:var(--amber)}
+  .ps-hero-nums{display:flex;gap:22px}
+  .ps-stat{display:flex;flex-direction:column;gap:2px}
+  .ps-stat b{font-family:var(--mono);font-size:23px;font-weight:800;line-height:1;color:var(--ink);font-variant-numeric:tabular-nums}
+  .ps-stat span{font-family:var(--mono);font-size:9px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+  .ps-stat b.pres{color:var(--green)} .ps-stat b.off{color:var(--steel)} .ps-stat b.gap{color:var(--amber)}
+  .ps-bar{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--panel-2);border:1px solid var(--line)}
+  .ps-seg{height:100%} .ps-seg.pres{background:var(--green)} .ps-seg.off{background:var(--steel)} .ps-seg.gap{background:var(--amber)}
+  .ps-rows{display:flex;flex-direction:column;gap:8px}
+  .ps-row{display:grid;grid-template-columns:minmax(120px,1.1fr) 2.4fr minmax(130px,auto);gap:16px;align-items:center;padding:11px 14px;border:1px solid var(--line-soft);border-radius:6px;background:var(--panel)}
+  .ps-row.ps-row-gap{border-left:3px solid var(--amber)}
+  .ps-row.ps-row-empty{opacity:.5}
+  .ps-name{font-family:var(--mono);font-weight:800;font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink)}
+  .ps-track{min-width:0}
+  .ps-nums{display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-family:var(--mono);white-space:nowrap}
+  .ps-big{font-size:17px;font-weight:800;font-variant-numeric:tabular-nums} .ps-big b.pres{color:var(--green)} .ps-big i{font-style:normal;color:var(--muted);font-size:14px}
+  .ps-sub{font-size:11px;color:var(--muted)} .ps-sub b.off{color:var(--steel)} .ps-sub b.gap{color:var(--amber)} .ps-sub b.zero{color:var(--muted)}
+  @media (max-width:560px){ .ps-row{grid-template-columns:1fr auto} .ps-track{grid-column:1 / -1;order:3} .ps-hero-nums{gap:16px} .ps-hero-pct span{font-size:34px} }
   .psg-docs-wrap{margin-top:14px;padding-top:14px;border-top:1px solid var(--line-soft)}
   .pd-row{display:grid;grid-template-columns:minmax(120px,1fr) 2fr 28px;gap:8px;align-items:center;margin-bottom:8px}
   .fm-check{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px}
@@ -663,22 +692,23 @@
 
   <!-- PERSTAT -->
   <div class="panel">
-    <div class="panel-head"><h2>PERSTAT</h2><span class="hint">assigned &rarr; present</span></div>
+    <div class="panel-head"><h2>PERSTAT</h2><span class="hint">personnel status &middot; by group</span></div>
     <div class="panel-body">
       <div class="panel-sub">Auto-summarized from the <b>Roster</b>. <b>Assigned</b> = accountable people in that group (<b>Departed</b> and <b>Absent</b> drop out); <b>Present</b> = signed <b>In</b> (on ground); <b>Off-site</b> = accounted for but off the property; <b>Gap</b> = still unaccounted (out).</div>
-      <table>
-        <thead><tr><th>Group</th><th>Assigned</th><th>Present</th><th>Off-site</th><th>Gap</th></tr></thead>
-        <tbody id="perBody"></tbody>
-        <tbody>
-          <tr class="total">
-            <td class="row-label">Total</td>
-            <td class="calc" id="perAsg">0</td>
-            <td class="calc" id="perPres">0</td>
-            <td class="calc" id="perOff">0</td>
-            <td class="calc" id="perGap">0</td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="ps-hero" id="psHero">
+        <div class="ps-hero-pct"><span id="psPct">&mdash;</span><label>on ground + off-site</label></div>
+        <div class="ps-hero-mid">
+          <div id="psHeroBar"><div class="ps-bar"></div></div>
+          <div class="ps-legend"><span class="lg pres">Present</span><span class="lg off">Off-site</span><span class="lg gap">Gap</span></div>
+        </div>
+        <div class="ps-hero-nums">
+          <div class="ps-stat"><b id="perAsg">0</b><span>Assigned</span></div>
+          <div class="ps-stat"><b id="perPres" class="pres">0</b><span>Present</span></div>
+          <div class="ps-stat"><b id="perOff" class="off">0</b><span>Off-site</span></div>
+          <div class="ps-stat"><b id="perGap" class="gap">0</b><span>Gap</span></div>
+        </div>
+      </div>
+      <div class="ps-rows" id="perBody"></div>
     </div>
   </div>
 
@@ -3804,23 +3834,35 @@ var qrcode = function() {
     PERSTAT_GROUPS.forEach(g=>{ const c=perstatGroupCounts(g); asg+=c.asg; pres+=c.pres; off+=c.off; });
     return {asg:asg, pres:pres, off:off, gap:asg-pres-off};
   }
+  function psBar(pres,off,gap,asg){
+    const w=n=>asg>0?(Math.round(n/asg*1000)/10):0;
+    let h='<div class="ps-bar">';
+    if(pres>0) h+='<div class="ps-seg pres" style="width:'+w(pres)+'%"></div>';
+    if(off>0)  h+='<div class="ps-seg off" style="width:'+w(off)+'%"></div>';
+    if(gap>0)  h+='<div class="ps-seg gap" style="width:'+w(gap)+'%"></div>';
+    return h+'</div>';
+  }
   function renderPer(){
-    const b=$("perBody"); b.innerHTML="";
+    const b=$("perBody"); if(!b) return; b.innerHTML="";
     PERSTAT_GROUPS.forEach(g=>{
       const c=perstatGroupCounts(g);
-      const tr=document.createElement("tr");
-      tr.innerHTML='<td class="row-label">'+esc(g.label)+'</td>'+
-        '<td class="calc">'+c.asg+'</td>'+
-        '<td class="calc">'+c.pres+'</td>'+
-        '<td class="calc">'+c.off+'</td>'+
-        '<td class="calc">'+c.gap+'</td>';
-      b.appendChild(tr);
+      const row=document.createElement("div");
+      row.className="ps-row"+(c.gap>0?" ps-row-gap":"")+(c.asg===0?" ps-row-empty":"");
+      row.innerHTML='<div class="ps-name">'+esc(g.label)+'</div>'+
+        '<div class="ps-track">'+psBar(c.pres,c.off,c.gap,c.asg)+'</div>'+
+        '<div class="ps-nums"><span class="ps-big"><b class="pres">'+c.pres+'</b><i>/'+c.asg+'</i></span>'+
+        '<span class="ps-sub">'+(c.off>0?'<b class="off">'+c.off+'</b> off &middot; ':'')+
+        '<b class="'+(c.gap>0?'gap':'zero')+'">'+c.gap+'</b> gap</span></div>';
+      b.appendChild(row);
     });
-    const t=perstatTotals();
-    $("perAsg").textContent=t.asg;
-    $("perPres").textContent=t.pres;
+    const t=perstatTotals(), acc=t.pres+t.off;
+    if($("perAsg")) $("perAsg").textContent=t.asg;
+    if($("perPres")) $("perPres").textContent=t.pres;
     if($("perOff")) $("perOff").textContent=t.off;
-    $("perGap").textContent=t.gap;
+    if($("perGap")) $("perGap").textContent=t.gap;
+    if($("psPct")) $("psPct").textContent = t.asg>0 ? (Math.round(acc/t.asg*1000)/10)+"%" : "—";
+    const hb=$("psHeroBar"); if(hb) hb.innerHTML=psBar(t.pres,t.off,t.gap,t.asg);
+    const hero=$("psHero"); if(hero){ hero.classList.toggle("ok", t.asg>0 && t.gap===0); hero.classList.toggle("warn", t.gap>0); }
   }
 
   // ---------- render sensitive items ----------
