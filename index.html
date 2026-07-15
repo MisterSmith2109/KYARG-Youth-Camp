@@ -180,8 +180,9 @@
   .add-btn:hover{border-color:var(--olive-bright);background:#262b1d}
  
   /* Incident log */
-  .inc-row{display:grid;grid-template-columns:150px 0.8fr 2.4fr 28px;gap:8px;align-items:start;margin-bottom:8px}
+  .inc-row{display:grid;grid-template-columns:150px 0.8fr 0.9fr 2.4fr 28px;gap:8px;align-items:start;margin-bottom:8px}
   .inc-row .t{font-family:var(--mono);font-size:12px}
+  .inc-row .mdc{font-size:13px}
   .inc-row .rm{line-height:1.4;min-height:32px;overflow:hidden;resize:vertical;white-space:pre-wrap;word-break:break-word}
   .inc-empty{color:var(--muted);font-family:var(--mono);font-size:13px;padding:8px 2px}
 
@@ -279,12 +280,13 @@
     .wx-temp{font-size:42px}
     .heat-flag{flex:1 1 100%;min-width:0}
     /* incident rows → stacked cards with the delete pinned to the side */
-    .inc-row{grid-template-columns:1fr 34px;grid-template-areas:"t d" "ty d" "rm d";gap:6px;
+    .inc-row{grid-template-columns:1fr 34px;grid-template-areas:"t d" "ty d" "md d" "rm d";gap:6px;
       border:1px solid var(--line-soft);border-radius:6px;padding:9px;margin-bottom:10px;align-items:start}
     .inc-row>*:nth-child(1){grid-area:t}
     .inc-row>*:nth-child(2){grid-area:ty}
-    .inc-row>*:nth-child(3){grid-area:rm}
-    .inc-row>*:nth-child(4){grid-area:d;align-self:start}
+    .inc-row>*:nth-child(3){grid-area:md}
+    .inc-row>*:nth-child(4){grid-area:rm}
+    .inc-row>*:nth-child(5){grid-area:d;align-self:start}
     /* give dense tables room + horizontal scroll instead of crushing columns */
     .tbl-scroll table{min-width:480px}
     .tbl-scroll{-webkit-overflow-scrolling:touch}
@@ -824,7 +826,7 @@
   <div class="panel">
     <div class="panel-head"><h2>Incident Report Log</h2><span class="hint">each entry = 1 report</span></div>
     <div class="panel-body">
-      <div class="panel-sub">Log incidents by hand, or auto-import responses from your Google Form. Paste the form&rsquo;s <b>published CSV link</b> (in the sheet: File &rarr; Share &rarr; Publish to web &rarr; the responses tab &rarr; Comma-separated values). New responses drop in automatically. Deleting an imported entry keeps it from coming back.</div>
+      <div class="panel-sub">Log incidents by hand, or auto-import responses from your Google Form. Paste the form&rsquo;s <b>published CSV link</b> (in the sheet: File &rarr; Share &rarr; Publish to web &rarr; the responses tab &rarr; Comma-separated values). New responses drop in automatically. Deleting an imported entry keeps it from coming back. The <b>Medic</b> column is auto-filled from the form&rsquo;s medic / &ldquo;your name&rdquo; field &mdash; the medic who submitted the report.</div>
       <div class="feed-row">
         <input id="feedUrl" placeholder="Published responses CSV link">
         <button class="btn2" id="feedConnect">Connect</button>
@@ -4081,6 +4083,7 @@ var qrcode = function() {
       row.innerHTML=
         '<input class="t" data-inc="'+i+'" data-f="time" value="'+esc(r.time)+'" placeholder="DTG">'+
         '<input data-inc="'+i+'" data-f="type" value="'+esc(r.type)+'" placeholder="Type (injury, missing, etc.)">'+
+        '<input class="mdc" data-inc="'+i+'" data-f="medic" value="'+esc(r.medic)+'" placeholder="Medic / by" title="Medic who reported it (auto-filled from the form)">'+
         '<textarea class="rm" data-inc="'+i+'" data-f="remarks" rows="1" placeholder="Remarks / action taken / status">'+esc(r.remarks)+'</textarea>'+
         '<button class="icon-btn" data-delinc="'+i+'" title="Remove">\u00d7</button>';
       b.appendChild(row);
@@ -4533,7 +4536,7 @@ var qrcode = function() {
   $("siAllPresent").addEventListener("click",()=>{ (state.sensitive||[]).forEach(it=>{ it.oh=(+it.qty||0); }); state.siCheck=nowDTG(); renderSensitive(); save(); });
   $("addInc").addEventListener("click",()=>{
     const d=new Date();
-    state.incidents.push({id:newId(),time:pad(d.getUTCDate())+pad(d.getUTCHours())+pad(d.getUTCMinutes())+"Z",type:"",remarks:"",status:"Open"});
+    state.incidents.push({id:newId(),time:pad(d.getUTCDate())+pad(d.getUTCHours())+pad(d.getUTCMinutes())+"Z",type:"",medic:"",remarks:"",status:"Open"});
     renderInc(); renderTiles(); save();
   });
 
@@ -4569,7 +4572,7 @@ var qrcode = function() {
           iDesc=col("description","what happened","details","describe","remarks"),
           iAct=col("action taken","action","response"),
           iPar=col("parent notified","contact notified","parent/guardian","guardian","notified"),
-          iBy=col("notified by","reported by","submitted by","your name");
+          iBy=col("medic name","medic","reported by","submitted by","notified by","completed by","your name","name of medic");
     const get=(r,i)=>(i>-1&&r[i]!=null)?String(r[i]).trim():"";
     const imported=new Set(state.importedKeys||[]);
     let added=0;
@@ -4587,9 +4590,9 @@ var qrcode = function() {
       const desc=get(row,iDesc); if(desc) bits.push(desc);
       const act=get(row,iAct); if(act) bits.push("Action: "+act);
       const par=get(row,iPar); if(par) bits.push("Parent notified: "+par);
-      const by=get(row,iBy); if(by) bits.push("by "+by);
+      const medic=get(row,iBy); // the medic who filled out the form → its own field, not the remarks
       const tstamp=(get(row,iDate)+" "+get(row,iTime)).trim()||get(row,iTS);
-      state.incidents.push({ id:"imp:"+key, time:tstamp, type:typeParts.join(" · ")||"Incident", remarks:bits.join(" — "), status:"Open", src:"form" });
+      state.incidents.push({ id:"imp:"+key, time:tstamp, type:typeParts.join(" · ")||"Incident", medic:medic, remarks:bits.join(" — "), status:"Open", src:"form" });
       added++;
     }
     state.importedKeys=Array.from(imported);
@@ -4763,7 +4766,7 @@ var qrcode = function() {
     if(state.incidents.length){
       L.push("");
       L.push("INCIDENTS");
-      state.incidents.forEach((r,i)=>L.push("  "+(i+1)+". "+(r.time||"----")+" \u2014 "+(r.type||"(untyped)")+(r.remarks?" \u2014 "+r.remarks:"")));
+      state.incidents.forEach((r,i)=>L.push("  "+(i+1)+". "+(r.time||"----")+" \u2014 "+(r.type||"(untyped)")+(r.remarks?" \u2014 "+r.remarks:"")+(String(r.medic||"").trim()?"  \u00b7 medic: "+r.medic.trim():"")));
     }
     return L.join("\n");
   }
@@ -4823,7 +4826,7 @@ var qrcode = function() {
 
     { const inc=state.incidents||[];
       line("3. INCIDENTS ("+inc.length+")");
-      if(inc.length) inc.forEach((r,i)=>line("   "+(i+1)+". "+(String(r.time||"").trim()||"----")+" — "+(String(r.type||"").trim()||"(untyped)")+(String(r.remarks||"").trim()?" — "+r.remarks.trim():"")));
+      if(inc.length) inc.forEach((r,i)=>line("   "+(i+1)+". "+(String(r.time||"").trim()||"----")+" — "+(String(r.type||"").trim()||"(untyped)")+(String(r.remarks||"").trim()?" — "+r.remarks.trim():"")+(String(r.medic||"").trim()?"  · medic: "+r.medic.trim():"")));
       else line("   No incidents logged."); }
     line("");
 
@@ -4914,7 +4917,7 @@ var qrcode = function() {
 
     // 3 — Incidents
     const inc=state.incidents||[];
-    h+=sec(3,"Incidents ("+inc.length+")", inc.length?li(inc.map(r=>esc((String(r.time||"").trim()||"----")+" — "+(String(r.type||"").trim()||"(untyped)")+(String(r.remarks||"").trim()?" — "+r.remarks.trim():"")))):empty("No incidents logged."));
+    h+=sec(3,"Incidents ("+inc.length+")", inc.length?li(inc.map(r=>esc((String(r.time||"").trim()||"----")+" — "+(String(r.type||"").trim()||"(untyped)")+(String(r.remarks||"").trim()?" — "+r.remarks.trim():""))+(String(r.medic||"").trim()?' <span class="k">&middot; medic: '+esc(r.medic.trim())+'</span>':""))):empty("No incidents logged."));
 
     // 4 — Supply
     const sr=state.supplyRequests||[], sopen=sr.filter(r=>r.status!=="Filled").length, sfill=sr.filter(r=>r.status==="Filled").length;
