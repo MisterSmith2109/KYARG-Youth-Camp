@@ -17,7 +17,9 @@ from a phone, not just a laptop or wall display.
 - **Header & DTG clock** — camp name, Zulu + local time, Camp Day, Battle
   Captain/OIC, TOC NCO, Weather/FPCON.
 - **Live weather** from the National Weather Service (set your camp coordinates,
-  or press *Locate*), with a **48-hour forecast chart** *(new)* — an hourly
+  or press *Locate*), with a near-term forecast strip and a **next-day forecast**
+  *(new)* — tomorrow's daytime high / overnight low, conditions, precip chance,
+  and wind — plus a **48-hour forecast chart** *(new)* — an hourly
   temperature curve with day/night shading, a "now" marker, high/low labels, and
   precipitation chance along the bottom (hover for the exact hour). Needs
   internet; everything else works offline.

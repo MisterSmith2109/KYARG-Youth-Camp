@@ -299,6 +299,11 @@
   .wx-fc .p .pn{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--olive-bright)}
   .wx-fc .p .pt{font-family:var(--mono);font-weight:800;font-size:20px}
   .wx-fc .p .ps{font-size:12px;color:var(--muted)}
+  .wx-tom{grid-column:1/-1;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;background:var(--panel-2);border:1px solid var(--line-soft);border-radius:8px;padding:9px 14px;margin-top:2px}
+  .wx-tom .wt-k{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--olive-bright)}
+  .wx-tom .wt-temps{font-family:var(--mono);font-weight:800;font-size:20px}
+  .wx-tom .wt-hi{color:var(--ink)} .wx-tom .wt-lo{color:var(--muted);font-weight:700;font-size:15px}
+  .wx-tom .wt-cond{font-size:13px;color:var(--muted)}
   .wx-alerts{display:flex;flex-direction:column;gap:6px;max-width:300px}
   .wx-chip{font-family:var(--mono);font-size:12px;font-weight:700;padding:6px 10px;border-radius:5px;letter-spacing:.03em}
   .wx-chip.warn{background:var(--red);color:#2a0d08}
@@ -522,6 +527,7 @@
       </div>
       <div class="wx-fc" id="wxFc"></div>
       <div class="wx-alerts" id="wxAlerts"></div>
+      <div class="wx-tom" id="wxTom" style="display:none"></div>
     </div>
   </div>
  
@@ -4869,6 +4875,27 @@ var qrcode = function() {
       d.innerHTML='<div class="pn">'+esc(p.name)+'</div><div class="pt">'+p.temperature+'\u00b0'+esc(p.temperatureUnit||"")+'</div><div class="ps">'+esc(p.shortForecast||"")+'</div>';
       fcEl.appendChild(d);
     });
+
+    // Next-day forecast: tomorrow's daytime high + that night's low, from the NWS periods.
+    const tEl=$("wxTom");
+    if(tEl){
+      const tomKey=(()=>{ const d=new Date(); d.setDate(d.getDate()+1); return d.toDateString(); })();
+      let td=null,tn=null;
+      (periods||[]).forEach(p=>{ let k=""; try{ k=new Date(p.startTime).toDateString(); }catch(e){}
+        if(k!==tomKey) return; if(p.isDaytime){ if(!td) td=p; } else if(!tn) tn=p; });
+      if(td||tn){
+        const hi=td?td.temperature:null, lo=tn?tn.temperature:null;
+        const nm=(td&&td.name)||(tn&&String(tn.name||"").replace(/ Night$/i,""))||"Tomorrow";
+        const src=td||tn, sf=(td&&td.shortForecast)||(tn&&tn.shortForecast)||"";
+        const pop=src&&src.probabilityOfPrecipitation&&src.probabilityOfPrecipitation.value;
+        const wind=td?((td.windSpeed||"")+(td.windDirection?" "+td.windDirection:"")):"";
+        const bits=[]; if(sf) bits.push(esc(sf)); if(pop) bits.push(pop+"% precip"); if(wind&&wind.trim()) bits.push("wind "+esc(wind.trim()));
+        tEl.innerHTML='<span class="wt-k">Tomorrow \u00b7 '+esc(nm)+'</span>'+
+          '<span class="wt-temps">'+(hi!=null?'<span class="wt-hi">'+hi+'\u00b0</span>':'')+(lo!=null?' <span class="wt-lo">/ '+lo+'\u00b0 low</span>':'')+'</span>'+
+          (bits.length?'<span class="wt-cond">'+bits.join(" \u00b7 ")+'</span>':'');
+        tEl.style.display="";
+      } else { tEl.style.display="none"; tEl.innerHTML=""; }
+    }
  
     const aEl=$("wxAlerts"); aEl.innerHTML="";
     if(!alerts.length){
