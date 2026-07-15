@@ -704,6 +704,7 @@
     renderSent(); // refresh my-requests live status against the freshly pulled board
     checkEventAlert(); // show/refresh the 10-min heads-up for the next activity
     if(!$("roster").classList.contains("hide")) renderPltRoster(); // keep an open roster live
+    if(!$("documents").classList.contains("hide")) renderDocs(); // keep open documents live as links arrive
     // if the setup sheet is open, refresh the platoon list now that we have the board
     if(!$("setup").classList.contains("hide")) fillSetupPlatoons();
   }
@@ -1082,18 +1083,31 @@
       DOCS=(j&&Array.isArray(j.documents))?j.documents:[]; docsState="ready"; renderDocs();
     }).catch(function(){ docsState="error"; renderDocs(); });
   }
+  function docEntries(){
+    // Repo-hosted files (docs/ folder) + secure links posted from the TOC (board.psgDocs).
+    var out=[];
+    DOCS.forEach(function(d){ if(d&&d.file) out.push({title:d.title||d.file, kind:d.kind||"", href:docUrl(d.file)}); });
+    var pd=(state.board&&Array.isArray(state.board.psgDocs))?state.board.psgDocs:[];
+    pd.forEach(function(d){
+      if(!d) return;
+      var url=String(d.url||"").trim(); if(!url) return;
+      if(!/^https?:\/\//i.test(url)) url="https://"+url;
+      out.push({title:(d.title||url), kind:"", href:url});
+    });
+    return out;
+  }
   function renderDocs(){
     var list=$("docList"); if(!list) return;
-    if(!DOCS.length){
+    var entries=docEntries();
+    if(!entries.length){
       var msg = docsState==="loading" ? "Loading…" : docsState==="error" ? "Couldn't load documents — check your signal and try again." : "No documents available yet.";
       list.innerHTML='<div class="doc-empty muted">'+esc(msg)+'</div>'; return;
     }
     list.innerHTML="";
-    DOCS.forEach(function(d){
-      if(!d||!d.file) return;
+    entries.forEach(function(d){
       var a=document.createElement("a");
-      a.className="doc-row"; a.href=docUrl(d.file); a.target="_blank"; a.rel="noopener";
-      a.innerHTML='<span class="doc-ico">📄</span><span class="doc-main"><span class="doc-title">'+esc(d.title||d.file)+'</span>'+
+      a.className="doc-row"; a.href=d.href; a.target="_blank"; a.rel="noopener";
+      a.innerHTML='<span class="doc-ico">📄</span><span class="doc-main"><span class="doc-title">'+esc(d.title)+'</span>'+
         (d.kind?'<span class="doc-kind">'+esc(d.kind)+'</span>':'')+'</span><span class="doc-open">Open ›</span>';
       list.appendChild(a);
     });

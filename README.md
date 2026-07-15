@@ -114,9 +114,14 @@ from a phone, not just a laptop or wall display.
   activity and location, the **heat flag + water/work-rest guidance** (with an
   optional work/rest timer), a **Notes** button (a private, on-phone notepad for
   AAR comments and reminders — timestamped, saved offline, with *copy all* to
-  paste into an AAR later), a **Documents** button (tap to open reference files
-  served from the project's `docs/` folder and listed from `docs/manifest.json`
-  — keep only non-sensitive material here, since the folder is publicly served),
+  paste into an AAR later), a **Documents** button (tap to open reference files —
+  non-sensitive ones served from the project's `docs/` folder and listed from
+  `docs/manifest.json`, plus **secure links** the TOC posts under *Field / PSG
+  Broadcast → Field documents*: host each file somewhere access-controlled
+  (e.g. Google Drive, "anyone with the link") and paste its share link at the
+  TOC. Those links ride the private sync link and are **never** written to the
+  public repo, so keep sensitive material such as maps and emergency plans there
+  rather than in `docs/`),
   a **Platoon Roster**
   button (their platoon's people and live sign-in status, built from the TOC
   sign-in roster — a person's platoon comes from their roster *Group*, and anyone
