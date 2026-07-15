@@ -4160,8 +4160,11 @@ var qrcode = function() {
           (showWhen&&when?'<span class="fm-when">since '+esc(when)+'</span>':'')+'</div>';
       }).join("");
     };
-    nameList($("fmOff"),offsite,"None off-site.",true);
-    nameList($("fmDep"),departed,"None.",true);
+    // Off-site & departed: show the count only (in the header); names live on the Sign-in Roster.
+    const countOnly=(el,n,emptyTxt)=>{ if(!el) return;
+      el.innerHTML='<div class="fm-empty">'+(n?"See the Sign-in Roster for names.":emptyTxt)+'</div>'; };
+    countOnly($("fmOff"),offsite.length,"None off-site.");
+    countOnly($("fmDep"),departed.length,"None.");
     nameList($("fmAbs"),abs,"None.",false);
     fmDelta();
     renderPlatoonAccount(); // per-platoon rollup
@@ -4406,7 +4409,7 @@ var qrcode = function() {
   });
   document.body.addEventListener("change",e=>{
     const t=e.target;
-    if(t.dataset.ros!=null){ const f=t.dataset.f; const r=state.roster[+t.dataset.ros]; r[f]=t.value; if(f==="status") r.last=nowDTG(); renderRoster(); renderTiles(); save(); return; }
+    if(t.dataset.ros!=null){ const f=t.dataset.f; const r=state.roster[+t.dataset.ros]; r[f]=t.value; if(f==="status") r.last=hhmmLocal(); renderRoster(); renderTiles(); save(); return; }
     else if(t.dataset.hc!=null && t.dataset.f==="type"){ const c=state.heatCas[+t.dataset.hc]; if(c){ c.type=t.value; renderHeatCas(); save(); } return; }
     else if(t.dataset.sr!=null && (t.dataset.f==="priority"||t.dataset.f==="status")){ const c=state.supplyRequests[+t.dataset.sr]; if(c){ c[t.dataset.f]=t.value; renderSupply(); save(); } return; }
     else if(t.dataset.rfi!=null && (t.dataset.f==="kind"||t.dataset.f==="status")){ const c=state.rfis[+t.dataset.rfi]; if(c){ c[t.dataset.f]=t.value; renderRfis(); save(); } return; }
@@ -4424,7 +4427,7 @@ var qrcode = function() {
     else if(t.dataset.delros!=null){ state.roster.splice(+t.dataset.delros,1); renderRoster(); renderTiles(); save(); }
     else if(t.dataset.delsch!=null){ const s=curSched(); if(s) s.splice(+t.dataset.delsch,1); renderSchedule(); save(); }
     else if(t.dataset.cancelsch!=null){ const s=curSched(); if(s&&s[+t.dataset.cancelsch]){ const r=s[+t.dataset.cancelsch]; r.canceled=!r.canceled; } renderSchedule(); save(); }
-    else if(t.dataset.signros!=null){ const r=state.roster[+t.dataset.signros]; r.status=(r.status==="In")?"Out":"In"; r.last=nowDTG(); renderRoster(); renderTiles(); save(); }
+    else if(t.dataset.signros!=null){ const r=state.roster[+t.dataset.signros]; r.status=(r.status==="In")?"Out":"In"; r.last=hhmmLocal(); renderRoster(); renderTiles(); save(); }
     else if(t.dataset.dtab!=null){ state.activeDay=+t.dataset.dtab; renderDtabs(); renderSchedule(); save(); }
     else if(t.dataset.ptab!=null){ state.activePlatoon=(t.dataset.ptab==="all")?-1:(+t.dataset.ptab); renderPtabs(); renderSchedule(); save(); }
   });
@@ -4542,11 +4545,11 @@ var qrcode = function() {
   $("rosterAdd").addEventListener("keydown",e=>{
     if(e.key!=="Enter") return;
     const nm=e.target.value.trim(); if(!nm) return;
-    state.roster.push({id:newId(),name:nm,group:"",role:"Camper",status:"In",last:nowDTG()});
+    state.roster.push({id:newId(),name:nm,group:"",role:"Camper",status:"In",last:hhmmLocal()});
     e.target.value=""; renderRoster(); renderTiles(); save();
   });
-  $("rInAll").addEventListener("click",()=>{ const d=nowDTG(); state.roster.forEach(r=>{ if(r.status!=="Absent"&&r.status!=="Departed"){ r.status="In"; r.last=d; } }); renderRoster(); renderTiles(); save(); });
-  $("rOutAll").addEventListener("click",()=>{ const d=nowDTG(); state.roster.forEach(r=>{ if(r.status!=="Absent"&&r.status!=="Departed"){ r.status="Out"; r.last=d; } }); renderRoster(); renderTiles(); save(); });
+  $("rInAll").addEventListener("click",()=>{ const d=hhmmLocal(); state.roster.forEach(r=>{ if(r.status!=="Absent"&&r.status!=="Departed"){ r.status="In"; r.last=d; } }); renderRoster(); renderTiles(); save(); });
+  $("rOutAll").addEventListener("click",()=>{ const d=hhmmLocal(); state.roster.forEach(r=>{ if(r.status!=="Absent"&&r.status!=="Departed"){ r.status="Out"; r.last=d; } }); renderRoster(); renderTiles(); save(); });
   $("addSch").addEventListener("click",()=>{ const s=curSched(); if(!s) return; s.push({time:"",activity:"",loc:"",status:"Upcoming"}); renderSchedule(); save(); });
 
   // platoon controls
