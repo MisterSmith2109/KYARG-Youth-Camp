@@ -107,6 +107,21 @@
   .abtn.rfi{grid-column:1/-1;background:#122423;border-color:#4a8c86;color:#c6e8e4}
   .abtn.roster{background:#1f1a2b;border-color:#8a76a8;color:#dccff0}
   .abtn.docs{background:#1a2118;border-color:var(--olive);color:var(--olive-bright)}
+  .abtn.account{grid-column:1/-1;background:#10231a;border-color:var(--green);color:#cdeccd}
+  /* take accountability sheet */
+  .acct-tools{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:2px 0 10px}
+  .acct-count{font-family:var(--mono);font-weight:800;font-size:15px}
+  .acct-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line-soft)}
+  .acct-row:first-child{border-top:none}
+  .acct-main{flex:1;min-width:0}
+  .acct-name{font-size:15px;font-weight:600}
+  .acct-role{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .acct-seg{display:flex;gap:4px;flex:none}
+  .acct-b{font-family:var(--mono);font-size:11px;font-weight:800;letter-spacing:.03em;padding:0 8px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--muted);min-width:42px;min-height:42px}
+  .acct-b.on.in{background:var(--green);color:#0f1a0e;border-color:var(--green)}
+  .acct-b.on.off{background:#5a9bb5;color:#04141b;border-color:#5a9bb5}
+  .acct-b.on.out{background:var(--amber);color:#241a05;border-color:var(--amber)}
+  #acctList{max-height:52vh;overflow-y:auto;margin-bottom:12px}
   /* platoon roster list */
   .ros-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line-soft)}
   .ros-row:first-child{border-top:none}
@@ -277,6 +292,7 @@
 
   <div class="actions">
     <button class="abtn medic" id="btnMedic"><span class="ico">🚑</span>Request Medic<span class="abtn-sub" id="medicSub">medical emergency &rarr; sends now</span></button>
+    <button class="abtn account" id="btnAccount"><span class="ico">✅</span>Take Accountability</button>
     <button class="abtn report" id="btnReport"><span class="ico">📝</span>Report to TOC</button>
     <button class="abtn notes" id="btnNotes"><span class="ico">🗒️</span>Notes</button>
     <button class="abtn supply" id="btnSupply"><span class="ico">📦</span>Supply Request</button>
@@ -466,6 +482,18 @@
     <p id="rosSub">—</p>
     <div id="rosList"></div>
     <div style="text-align:center;margin-top:12px"><button class="linkbtn" id="rosClose">Done</button></div>
+  </div>
+</div>
+
+<!-- take accountability sheet (updates the shared sign-in roster for this platoon) -->
+<div class="overlay hide" id="account">
+  <div class="sheet">
+    <h1>Take Accountability</h1>
+    <p id="acctSub">—</p>
+    <div class="acct-tools"><span class="acct-count" id="acctCount">—</span><button class="linkbtn" id="acctAllIn">All present</button></div>
+    <div id="acctList"></div>
+    <button class="primary" id="acctSend">Submit to TOC</button>
+    <div style="text-align:center;margin-top:8px"><button class="linkbtn" id="acctCancel">Cancel</button></div>
   </div>
 </div>
 
@@ -876,7 +904,7 @@
     }
     // safety net: queued items not (yet) reflected in the board copy — show them as PENDING
     loadOutbox().forEach(function(x){
-      if(!x||have[x.id]||!x.rec||(x.rec.platoon&&x.rec.platoon!==plt)) return;
+      if(!x||x.kind==="account"||have[x.id]||!x.rec||(x.rec.platoon&&x.rec.platoon!==plt)) return; // roster updates aren't feed rows
       var v = x.kind==="incident"?incidentView(x.rec,plt) : x.kind==="heat"?heatView(x.rec,plt) : x.kind==="medic"?medicView(x.rec) : x.kind==="rfi"?rfiView(x.rec) : supplyView(x.rec);
       v.status=["pending","PENDING"]; out.push(v);
     });
@@ -1233,6 +1261,68 @@
   function closeRoster(){ $("roster").classList.add("hide"); }
   $("btnRoster").addEventListener("click",openRoster);
   $("rosClose").addEventListener("click",closeRoster);
+
+  // ---------- take accountability: the PSG counts their platoon and updates the shared roster ----------
+  var acctState={}; // id -> pending status the PSG set in the sheet (before submit)
+  function acctPeople(){
+    var b=state.board, plt=state.platoon, iAmHQ=isHQView(), allNames=allPlatoonGroupNames();
+    var people=(b&&Array.isArray(b.roster)) ? b.roster.filter(function(r){
+      return r&&r.name&&belongsHere(r,plt,iAmHQ,allNames)&&String(r.status).toLowerCase()!=="departed"; }) : [];
+    people.sort(function(a,c){ var ra=roleRank(a.role), rc=roleRank(c.role); if(ra!==rc) return ra-rc; return String(a.name||"").localeCompare(String(c.name||"")); });
+    return people;
+  }
+  function acctStatusOf(r){ return acctState[r.id] || (String(r.status||"").trim()||"Out"); }
+  function acctKey(s){ s=String(s||"").toLowerCase(); return s==="in"?"in":(s==="off-site"||s==="offsite")?"off":"out"; }
+  function renderAcct(){
+    var list=$("acctList"); if(!list) return;
+    var people=acctPeople(), present=0;
+    list.innerHTML="";
+    people.forEach(function(r){
+      var k=acctKey(acctStatusOf(r)); if(k==="in") present++;
+      var row=document.createElement("div"); row.className="acct-row";
+      row.innerHTML='<div class="acct-main"><div class="acct-name">'+esc(r.name)+'</div>'+(r.role?'<div class="acct-role">'+esc(r.role)+'</div>':'')+'</div>'+
+        '<div class="acct-seg">'+
+          '<button class="acct-b in'+(k==="in"?" on":"")+'" data-acct="'+esc(r.id)+'" data-st="In">IN</button>'+
+          '<button class="acct-b off'+(k==="off"?" on":"")+'" data-acct="'+esc(r.id)+'" data-st="Off-site">OFF</button>'+
+          '<button class="acct-b out'+(k==="out"?" on":"")+'" data-acct="'+esc(r.id)+'" data-st="Out">OUT</button>'+
+        '</div>';
+      list.appendChild(row);
+    });
+    if(!people.length) list.innerHTML='<div class="doc-empty muted">'+((state.board&&state.board.roster)?"No one is assigned to this platoon yet.":"Connect to load the roster.")+'</div>';
+    $("acctCount").textContent=present+" / "+people.length+" present";
+    $("acctSub").textContent=(state.platoon||"Platoon")+" — mark each person, then submit to the TOC.";
+  }
+  function openAccount(){
+    if(!state.url){ toast("Set up sync first — tap Settings.",true); return; }
+    if(!state.board||!Array.isArray(state.board.roster)){ toast("Still loading the roster — try again in a moment.",true); return; }
+    acctState={}; renderAcct(); $("account").classList.remove("hide");
+  }
+  function closeAccount(){ $("account").classList.add("hide"); }
+  function sendAccount(){
+    if(!state.url){ toast("Not connected — can't send.",true); return; }
+    if(!state.board){ toast("Still loading the board — try again.",true); return; }
+    var people=acctPeople(); if(!people.length){ toast("No one to account for.",true); return; }
+    var now=Date.now(), c=campNow(), stamp=pad(c.h)+":"+pad(c.m);
+    var board=JSON.parse(JSON.stringify(state.board)), byId={}, present=0;
+    (board.roster||[]).forEach(function(r){ if(r&&r.id!=null) byId[r.id]=r; });
+    people.forEach(function(r){
+      var st=acctStatusOf(r), rec=byId[r.id]; if(!rec) return;
+      rec.status=st; rec.last=stamp; rec._m=now;         // stamp fresh so the merge takes the PSG's count
+      if(acctKey(st)==="in") present++;
+    });
+    state.board=board; saveBoardCache();                  // optimistic
+    var rec={ id:"acct"+now.toString(36)+Math.random().toString(36).slice(2,6), platoon:state.platoon||"", _account:true };
+    queueSend(board, rec, "account", "Accountability "+present+"/"+people.length);
+    closeAccount(); render();
+  }
+  $("acctList").addEventListener("click",function(e){
+    var t=e.target, btn=(t.classList&&t.classList.contains("acct-b"))?t:(t.closest?t.closest(".acct-b"):null);
+    if(!btn) return; acctState[btn.getAttribute("data-acct")]=btn.getAttribute("data-st"); renderAcct();
+  });
+  $("acctAllIn").addEventListener("click",function(){ acctPeople().forEach(function(r){ acctState[r.id]="In"; }); renderAcct(); });
+  $("btnAccount").addEventListener("click",openAccount);
+  $("acctSend").addEventListener("click",sendAccount);
+  $("acctCancel").addEventListener("click",closeAccount);
 
   $("btnAlerts").addEventListener("click",requestAlerts);
   $("evtAlertX").addEventListener("click",function(){ dismissedKey=shownKey; $("evtAlert").classList.add("hide"); });
