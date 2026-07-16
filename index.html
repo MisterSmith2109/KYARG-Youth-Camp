@@ -559,19 +559,19 @@
   /* ================= NEO THEME — futuristic glass HUD (opt-in via the toolbar toggle) ================= */
   html[data-theme="neo"]{
     --bg:#060910;
-    --panel:rgba(16,25,40,.62);
-    --panel-2:rgba(120,205,235,.07);
-    --line:rgba(120,210,235,.22);
-    --line-soft:rgba(120,210,235,.11);
-    --ink:#eaf7ff;
-    --muted:#82a3ba;
-    --olive:#22b8c9;          /* accent — teal */
-    --olive-bright:#57e6ff;   /* accent — bright cyan */
-    --amber:#ffce4a;
-    --green:#39efab;          /* mint */
-    --red:#ff5d74;
-    --steel:#5cc7ff;
-    --black-status:#5c6c7a;
+    --panel:rgba(15,24,41,.86);       /* more opaque = crisp, readable text over the HUD backdrop */
+    --panel-2:rgba(122,208,238,.14);
+    --line:rgba(126,216,244,.38);     /* stronger borders so panels read as distinct */
+    --line-soft:rgba(126,216,244,.18);
+    --ink:#f2fbff;                    /* near-white for maximum legibility */
+    --muted:#b3d4e8;                  /* brighter than before — labels/sub-text stay readable */
+    --olive:#25d8ee;                  /* accent — bright teal */
+    --olive-bright:#6cf1ff;           /* accent — electric cyan */
+    --amber:#ffd23a;
+    --green:#2bf5a4;                  /* vivid mint */
+    --red:#ff5470;
+    --steel:#5ad2ff;
+    --black-status:#6a7d8c;
   }
   html[data-theme="neo"] body{ background:#060910; }
   html[data-theme="neo"] body::before{ content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;
@@ -580,7 +580,7 @@
       radial-gradient(1000px 720px at 112% 8%, rgba(57,239,171,.10), transparent 55%),
       radial-gradient(900px 900px at 50% 122%, rgba(70,120,255,.10), transparent 60%),
       linear-gradient(180deg,#070d17,#04070d); }
-  html[data-theme="neo"] body::after{ content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.45;
+  html[data-theme="neo"] body::after{ content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.28;
     background-image:linear-gradient(rgba(120,210,235,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(120,210,235,.05) 1px,transparent 1px);
     background-size:46px 46px;
     -webkit-mask-image:radial-gradient(125% 90% at 50% 0%,#000 52%,transparent 100%);
@@ -601,7 +601,10 @@
   html[data-theme="neo"] .si-chip,html[data-theme="neo"] .fm-h>span:last-child{ background:rgba(120,210,235,.09) }
   html[data-theme="neo"] .btn,html[data-theme="neo"] .btn2,html[data-theme="neo"] .add-btn{ background:rgba(120,210,235,.06) }
   html[data-theme="neo"] .btn:hover,html[data-theme="neo"] .btn2:hover{ border-color:var(--olive-bright);box-shadow:0 0 14px -4px var(--olive-bright) }
-  html[data-theme="neo"] input,html[data-theme="neo"] select,html[data-theme="neo"] textarea{ background:rgba(9,15,25,.6);border-color:var(--line-soft) }
+  html[data-theme="neo"] input,html[data-theme="neo"] select,html[data-theme="neo"] textarea{ background:rgba(7,12,22,.86);border-color:var(--line-soft);color:var(--ink) }
+  html[data-theme="neo"] .panel-sub,html[data-theme="neo"] .hint{ color:var(--muted) }
+  html[data-theme="neo"] .panel-head h2,html[data-theme="neo"] .wx-head h2{ text-shadow:0 0 16px rgba(108,241,255,.5) }
+  html[data-theme="neo"] .tile .t-label,html[data-theme="neo"] .meta label,html[data-theme="neo"] .fm-h{ color:#c6e2f2 }
   html[data-theme="neo"] #startOverlay{ background:rgba(4,7,13,.97) }
   #btnTheme{ min-width:118px }
 </style>
