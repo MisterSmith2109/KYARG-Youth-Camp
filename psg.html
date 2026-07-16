@@ -7,9 +7,9 @@
 <title>PSG Field View — KYARNG Youth Camp</title>
 <style>
   :root{
-    --bg:#12140e; --panel:#1b1e16; --panel-2:#22261c; --line:#3a3f30; --line-soft:#2a2e22;
-    --ink:#e9ead9; --muted:#9aa085; --olive:#7f8b4f; --olive-bright:#a8b86a;
-    --amber:#e0a53b; --green:#5fae5a; --red:#d5533f; --black-status:#767b66;
+    --bg:#101208; --panel:#1b1e16; --panel-2:#242a1c; --line:#454b38; --line-soft:#2f3426;
+    --ink:#f1f2e2; --muted:#a9b08d; --olive:#9aab52; --olive-bright:#c6dc6e;
+    --amber:#f5b62c; --green:#5fd257; --red:#f4553b; --steel:#57bde0; --black-status:#8b917a;
     --mono:ui-monospace,"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
   }
   *{box-sizing:border-box}
@@ -226,7 +226,43 @@
   #btnAlerts{font-size:16px;padding:7px 10px}
   .hide{display:none!important}
   @media (prefers-reduced-motion:reduce){*{animation:none!important}}
+
+  /* ================= NEO THEME — futuristic glass HUD (opt-in via the footer toggle) ================= */
+  html[data-theme="neo"]{
+    --bg:#060910;
+    --panel:rgba(15,24,41,.86);
+    --panel-2:rgba(122,208,238,.14);
+    --line:rgba(126,216,244,.38);
+    --line-soft:rgba(126,216,244,.18);
+    --ink:#f2fbff;
+    --muted:#b3d4e8;
+    --olive:#25d8ee;
+    --olive-bright:#6cf1ff;
+    --amber:#ffd23a;
+    --green:#2bf5a4;
+    --red:#ff5470;
+    --steel:#5ad2ff;
+    --black-status:#6a7d8c;
+  }
+  html[data-theme="neo"] body{ background:#060910; }
+  html[data-theme="neo"] body::before{ content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;
+    background:
+      radial-gradient(900px 620px at 8% -8%, rgba(40,190,215,.16), transparent 60%),
+      radial-gradient(760px 620px at 112% 6%, rgba(57,239,171,.10), transparent 55%),
+      radial-gradient(700px 760px at 50% 120%, rgba(70,120,255,.10), transparent 60%),
+      linear-gradient(180deg,#070d17,#04070d); }
+  html[data-theme="neo"] body::after{ content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.24;
+    background-image:linear-gradient(rgba(120,210,235,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(120,210,235,.05) 1px,transparent 1px);
+    background-size:42px 42px;
+    -webkit-mask-image:radial-gradient(130% 85% at 50% 0%,#000 50%,transparent 100%);
+            mask-image:radial-gradient(130% 85% at 50% 0%,#000 50%,transparent 100%); }
+  html[data-theme="neo"] .card{ -webkit-backdrop-filter:blur(9px);backdrop-filter:blur(9px);border-radius:14px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 10px 30px -20px rgba(0,0,0,.95); }
+  html[data-theme="neo"] header{ border-bottom-color:var(--olive); }
+  html[data-theme="neo"] .h-name{ text-shadow:0 0 14px rgba(87,230,255,.45) }
+  html[data-theme="neo"] input,html[data-theme="neo"] select,html[data-theme="neo"] textarea{ background:rgba(7,12,22,.86);border-color:var(--line-soft);color:var(--ink) }
 </style>
+<script>try{if(localStorage.getItem("kyarng-camp-theme")==="neo")document.documentElement.setAttribute("data-theme","neo");}catch(e){}</script>
 </head>
 <body>
 <div class="wrap" id="app" aria-live="polite">
@@ -313,7 +349,7 @@
 
   <div class="foot">
     <span id="updated">—</span>
-    <span class="foot-btns"><button id="btnAlerts" title="Lock-screen alerts">🔕</button><button id="btnSettings">Settings</button></span>
+    <span class="foot-btns"><button id="btnTheme" title="Switch between the Field look and the futuristic Neo look">◐ Neo</button><button id="btnAlerts" title="Lock-screen alerts">🔕</button><button id="btnSettings">Settings</button></span>
   </div>
 </div>
 
@@ -502,6 +538,14 @@
 <script>
 (function(){
   var $=function(id){return document.getElementById(id);};
+  // ---------- theme toggle (Field <-> opt-in Neo) ----------
+  (function(){ var KEY="kyarng-camp-theme", root=document.documentElement;
+    var lbl=function(){ var b=$("btnTheme"); if(b) b.textContent=(root.getAttribute("data-theme")==="neo")?"◑ Field":"◐ Neo"; };
+    lbl();
+    var b=$("btnTheme"); if(b) b.addEventListener("click",function(){ var neo=root.getAttribute("data-theme")==="neo";
+      if(neo) root.removeAttribute("data-theme"); else root.setAttribute("data-theme","neo");
+      try{ localStorage.setItem(KEY, neo?"field":"neo"); }catch(e){} lbl(); });
+  })();
   var LS_URL="kyarng-psg-url", LS_PLT="kyarng-psg-platoon", LS_WR="kyarng-psg-wr",
       LS_OUTBOX="kyarng-psg-outbox", LS_BOARD="kyarng-psg-board",
       LS_NOTIFY="kyarng-psg-notify", LS_ALERTED="kyarng-psg-alerted", LS_NOTES="kyarng-psg-notes";
