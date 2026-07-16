@@ -245,6 +245,8 @@
   .dc-table tr.dc-win td.dc-comb{color:var(--green)}
   .dc-badge{display:inline-block;font-family:var(--mono);font-size:9px;font-weight:800;letter-spacing:.06em;padding:1px 6px;border-radius:20px;background:var(--green);color:#0f1a0e;margin-left:6px;vertical-align:middle}
   .dc-empty{font-size:13px;color:var(--muted);font-style:italic;padding:10px 2px}
+  .dc-cad-h{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--olive-bright);font-weight:800;margin:20px 0 2px;padding-top:14px;border-top:1px solid var(--line)}
+  .dc-table td.dc-cadwin{background:rgba(95,210,87,.12);color:var(--green)}
   .bk-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
   .bk-head h2{margin:0;font-size:18px}
   .bk-sub{color:var(--muted);font-size:13px;line-height:1.5;margin:8px 0 12px}
@@ -1026,6 +1028,7 @@
         </div>
       </div>
       <div id="dcTally"></div>
+      <div id="dcCadence"></div>
     </div>
   </div>
 
@@ -3785,14 +3788,18 @@ var qrcode = function() {
     {n:1, platoons:["Alpha Smurfs","Red Bandits","Maroon Typhoons","Foxtrot Fairies"]},
     {n:2, platoons:["Ninja Turtles","Cutie Patooties","G-Flex","Pink Power Rangers","Camp Loucon"]}
   ];
+  const DC_CADENCE_GROUPS=[  // cadence vote — 8 youth platoons only (no Camp Loucon)
+    {n:1, platoons:["Alpha Smurfs","Red Bandits","Maroon Typhoons","Foxtrot Fairies"]},
+    {n:2, platoons:["Ninja Turtles","Cutie Patooties","G-Flex","Pink Power Rangers"]}
+  ];
   function renderDc(){
-    const tally=$("dcTally"); if(!tally) return;
-    const scores=state.dcScores||[];
+    const tally=$("dcTally"); if(!tally){ renderDcCadence(); return; }
+    const scores=(state.dcScores||[]).filter(r=>r.kind!=="cadence");
     const judges=[]; scores.forEach(r=>{ const j=String(r.judge||"").trim()||"?"; if(judges.indexOf(j)<0) judges.push(j); });
     const byP={}; scores.forEach(r=>{ const p=r.platoon||"?", j=String(r.judge||"").trim()||"?"; if(!byP[p]) byP[p]={}; byP[p][j]=(+r.total||0); });
     const chip=$("dcChip"); if(chip){ chip.textContent = scores.length? (judges.length+" judge"+(judges.length===1?"":"s")+" · "+scores.length+" score"+(scores.length===1?"":"s")) : "no scores yet";
       chip.className="si-chip"+(scores.length?" ok":" none"); }
-    if(!scores.length){ tally.innerHTML='<div class="dc-empty">No scores submitted yet. Share the judge link above; scores appear here live as judges submit.</div>'; return; }
+    if(!scores.length){ tally.innerHTML='<div class="dc-empty">No scores submitted yet. Share the judge link above; scores appear here live as judges submit.</div>'; renderDcCadence(); return; }
     let h="";
     DC_GROUPS.forEach(g=>{
       const rows=g.platoons.map(p=>{ const jr=byP[p]||{}; let sum=0,cnt=0; judges.forEach(j=>{ if(jr[j]!=null){ sum+=jr[j]; cnt++; } }); return {p:p,jr:jr,sum:sum,cnt:cnt}; });
@@ -3810,6 +3817,32 @@ var qrcode = function() {
       h+='</tbody></table></div></div>';
     });
     tally.innerHTML=h;
+    renderDcCadence();
+  }
+  // Cadences: tally the Best / Loudest votes per group, winner = most votes (ties both marked).
+  function renderDcCadence(){
+    const box=$("dcCadence"); if(!box) return;
+    const votes=(state.dcScores||[]).filter(r=>r.kind==="cadence");
+    if(!votes.length){ box.innerHTML=""; return; }
+    const nJudges=votes.length;
+    let h='<div class="dc-cad-h">Cadences &mdash; '+nJudges+' vote'+(nJudges===1?"":"s")+' in</div>';
+    DC_CADENCE_GROUPS.forEach(g=>{
+      const best={}, loud={};
+      g.platoons.forEach(p=>{ best[p]=0; loud[p]=0; });
+      votes.forEach(v=>{ const bp=(v.best||{})[g.n], lp=(v.loudest||{})[g.n];
+        if(bp!=null && best.hasOwnProperty(bp)) best[bp]++;
+        if(lp!=null && loud.hasOwnProperty(lp)) loud[lp]++; });
+      const maxB=Math.max(0,...g.platoons.map(p=>best[p])), maxL=Math.max(0,...g.platoons.map(p=>loud[p]));
+      h+='<div class="dc-group"><div class="dc-gh">Group '+g.n+' &middot; cadence</div><div class="tbl-scroll"><table class="dc-table"><thead><tr><th>Platoon</th><th>Best</th><th>Loudest</th></tr></thead><tbody>';
+      g.platoons.forEach(p=>{
+        const bWin=maxB>0 && best[p]===maxB, lWin=maxL>0 && loud[p]===maxL;
+        h+='<tr><td class="dc-plt">'+esc(p)+'</td>'+
+          '<td class="dc-num'+(bWin?' dc-cadwin':'')+'">'+(best[p]||'—')+(bWin?' <span class="dc-badge">Best</span>':'')+'</td>'+
+          '<td class="dc-num'+(lWin?' dc-cadwin':'')+'">'+(loud[p]||'—')+(lWin?' <span class="dc-badge">Loudest</span>':'')+'</td></tr>';
+      });
+      h+='</tbody></table></div></div>';
+    });
+    box.innerHTML=h;
   }
 
   // ---------- DTG clock ----------

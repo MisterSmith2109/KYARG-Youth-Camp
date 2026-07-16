@@ -78,6 +78,13 @@
   .sheet-card .go{margin-top:16px;width:100%;min-height:50px;border:none;border-radius:10px;background:var(--olive);color:#12140f;font-weight:800;font-size:16px}
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#0d1207;border:1px solid var(--green);color:#dff3df;padding:11px 16px;border-radius:10px;font-size:14px;font-weight:600;z-index:70;max-width:90%;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.5)}
   .toast[hidden]{display:none} .toast.warn{border-color:var(--amber);color:#f6e2b6}
+  /* cadences */
+  .cad-note{font-size:13px;color:var(--muted);margin-bottom:6px}
+  .cad-g{margin-top:10px}
+  .cad-gh{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--olive-bright);font-weight:800;margin-bottom:4px}
+  .cad-row{display:flex;align-items:center;gap:10px;margin:6px 0}
+  .cad-row span{font-size:14px;font-weight:700;min-width:74px}
+  .cad-row select{flex:1;background:var(--panel-2);border:1px solid var(--line-soft);color:var(--ink);border-radius:8px;padding:10px}
   @media (prefers-reduced-motion:reduce){*{animation:none!important}}
 </style>
 </head>
@@ -101,6 +108,7 @@
   </div>
 
   <div id="groups"></div>
+  <div class="grp" id="cadence"></div>
 
   <div class="foot">
     <span id="fJudge">—</span>
@@ -127,7 +135,7 @@
 <script>
 (function(){
   var $=function(id){return document.getElementById(id);};
-  var LS_JUDGE="kyarng-dc-judge", LS_URL="kyarng-dc-url", LS_SCORES="kyarng-dc-scores", LS_OUTBOX="kyarng-dc-outbox";
+  var LS_JUDGE="kyarng-dc-judge", LS_URL="kyarng-dc-url", LS_SCORES="kyarng-dc-scores", LS_OUTBOX="kyarng-dc-outbox", LS_CAD="kyarng-dc-cadence";
 
   var FACING=["Fall In","Present Arms","Order Arms","Right Face","Left Face","About Face","Right Step","Left Step","Fall Out"];
   var MARCHING=["Forward March","Column Right","Column Left","Right Flank","Left Flank","Rear March","Counter Column","Cadence"];
@@ -137,14 +145,20 @@
     {n:2, platoons:["Ninja Turtles","Cutie Patooties","G-Flex","Pink Power Rangers","Camp Loucon"]}
   ];
   var RATE=[["precision","Precision of marching"],["difficulty","Degree of difficulty"],["originality","Originality"]];
+  // Cadences: a Best + Loudest vote per group (8 youth platoons only — no Camp Loucon).
+  var CADENCE_GROUPS=[
+    {n:1, platoons:["Alpha Smurfs","Red Bandits","Maroon Typhoons","Foxtrot Fairies"]},
+    {n:2, platoons:["Ninja Turtles","Cutie Patooties","G-Flex","Pink Power Rangers"]}
+  ];
 
   function slug(s){ return String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,""); }
   function recId(judge,platoon){ return "dc-"+slug(judge)+"-"+slug(platoon); }
 
-  var state={ judge:"", url:"", scores:{} };
+  var state={ judge:"", url:"", scores:{}, cadence:{best:{},loudest:{},sent:false} };
   try{ state.judge=localStorage.getItem(LS_JUDGE)||""; }catch(e){}
   try{ state.url=localStorage.getItem(LS_URL)||""; }catch(e){}
   try{ state.scores=JSON.parse(localStorage.getItem(LS_SCORES)||"{}")||{}; }catch(e){ state.scores={}; }
+  try{ var cd=JSON.parse(localStorage.getItem(LS_CAD)||"null"); if(cd&&typeof cd==="object") state.cadence={best:cd.best||{},loudest:cd.loudest||{},sent:!!cd.sent}; }catch(e){}
   // URL params: ?sync=<url>&judge=<name>
   try{ var qs=new URLSearchParams(location.search); var qSync=qs.get("sync"), qJ=qs.get("judge");
     if(qSync){ state.url=qSync; try{ localStorage.setItem(LS_URL,state.url); }catch(e){} }
@@ -152,6 +166,7 @@
   }catch(e){}
 
   function saveScores(){ try{ localStorage.setItem(LS_SCORES, JSON.stringify(state.scores)); }catch(e){} }
+  function saveCadence(){ try{ localStorage.setItem(LS_CAD, JSON.stringify(state.cadence)); }catch(e){} }
   function sc(platoon){ if(!state.scores[platoon]) state.scores[platoon]={moves:{},precision:0,difficulty:0,originality:0,camper:false,time:"",deduct:0,sent:false}; return state.scores[platoon]; }
 
   function parseTime(t){ // "m:ss" or "mm:ss" -> seconds, or plain seconds/minutes
@@ -191,6 +206,19 @@
     sc(platoon).sent=true; saveScores();
     flush();
     renderCard(platoon); setStat();
+  }
+  function submitCadence(){
+    if(!state.judge){ openSetup(); return; }
+    if(!state.url){ toast("No sync link — open the link the TOC gave you.",true); return; }
+    var id="dccad-"+slug(state.judge);
+    var rec={ id:id, kind:"cadence", judge:state.judge, best:state.cadence.best||{}, loudest:state.cadence.loudest||{}, _m:Date.now() };
+    var board={ dcScores:[rec], _by:"dc:"+slug(state.judge), _ts:Date.now(), _m:{} };
+    var a=loadOutbox().filter(function(x){ return x.id!==id; });
+    a.push({ id:id, platoon:"Cadence votes", board:board, tries:0 });
+    if(a.length>40) a=a.slice(a.length-40);
+    saveOutbox(a);
+    state.cadence.sent=true; saveCadence();
+    flush(); renderCadence(); setStat();
   }
   var flushing=false, flushTimer=null;
   function flush(){
@@ -238,7 +266,23 @@
       box.appendChild(gd);
     });
     allPlatoons().forEach(renderCard);
+    renderCadence();
     setStat();
+  }
+  function renderCadence(){
+    var box=$("cadence"); if(!box) return;
+    var c=state.cadence||{best:{},loudest:{}};
+    var opts=function(list,sel){ var o='<option value="">— pick —</option>'; list.forEach(function(p){ o+='<option value="'+esc(p)+'"'+(sel===p?' selected':'')+'>'+esc(p)+'</option>'; }); return o; };
+    var h='<div class="grp-h">Cadences &mdash; vote</div>';
+    h+='<div class="card" id="cadCard"><div class="cad-note">Pick the <b>Best</b> and <b>Loudest</b> cadence in each group. One vote each &mdash; the TOC tallies the votes.</div>';
+    CADENCE_GROUPS.forEach(function(g){
+      h+='<div class="cad-g"><div class="cad-gh">Group '+g.n+'</div>';
+      h+='<label class="cad-row"><span>Best</span><select data-cad="best" data-g="'+g.n+'">'+opts(g.platoons, (c.best||{})[g.n])+'</select></label>';
+      h+='<label class="cad-row"><span>Loudest</span><select data-cad="loudest" data-g="'+g.n+'">'+opts(g.platoons, (c.loudest||{})[g.n])+'</select></label>';
+      h+='</div>';
+    });
+    h+='<button class="submit'+(c.sent?' sent':'')+'" id="cadSubmit">'+(c.sent?'✓ Votes submitted — tap to update':'Submit cadence votes')+'</button></div>';
+    box.innerHTML=h;
   }
   function renderCard(platoon){
     var card=$("card-"+slug(platoon)); if(!card) return;
@@ -294,6 +338,17 @@
       Array.prototype.forEach.call(wrap.children,function(b){ b.classList.toggle("on", +b.getAttribute("data-v")===(+s[key])); });
       refreshTotals(platoon); markUnsent(platoon); return; }
     if(t.hasAttribute&&t.hasAttribute("data-submit")){ submit(platoon); return; }
+  });
+  // cadence votes
+  $("cadence").addEventListener("change", function(e){
+    var t=e.target; if(!t.hasAttribute||!t.hasAttribute("data-cad")) return;
+    var kind=t.getAttribute("data-cad"), g=t.getAttribute("data-g");
+    if(!state.cadence[kind]) state.cadence[kind]={};
+    state.cadence[kind][g]=t.value; state.cadence.sent=false; saveCadence();
+    var btn=$("cadSubmit"); if(btn){ btn.className="submit"; btn.textContent="Submit cadence votes"; }
+  });
+  $("cadence").addEventListener("click", function(e){
+    if(e.target && e.target.id==="cadSubmit") submitCadence();
   });
   function refreshTotals(platoon){ var tot=$("tot-"+slug(platoon)); if(tot) tot.innerHTML=total(platoon)+' <small>pts</small>';
     var mvc=$("mvc-"+slug(platoon)); if(mvc) mvc.textContent=movesCount(platoon)+" / 17"; }
