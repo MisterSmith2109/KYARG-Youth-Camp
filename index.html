@@ -241,7 +241,15 @@
   .btn.primary:hover{background:var(--olive-bright)}
   .btn.danger:hover{border-color:var(--red);color:var(--red)}
   .save-note{font-family:var(--mono);font-size:11px;color:var(--muted);align-self:center;margin-right:auto}
- 
+
+  /* footer links to the companion dashboards */
+  .xnav{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;margin:0 0 26px;padding-top:16px;border-top:1px solid var(--line-soft)}
+  .xnav .xnav-k{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-right:2px}
+  .xnav a{display:inline-flex;align-items:center;gap:8px;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:11px 20px;font-size:14px;font-weight:700;letter-spacing:.03em;text-decoration:none}
+  .xnav a .ico{font-size:16px}
+  .xnav a:hover{border-color:var(--olive-bright);color:var(--olive-bright)}
+  .xnav a.xmedic:hover{border-color:var(--red);color:var(--red)}
+
   @media (max-width:820px){
     .tiles{grid-template-columns:1fr 1fr}
     .grid-2{grid-template-columns:1fr}
@@ -1041,6 +1049,12 @@
     <button class="btn" id="btnTheme" title="Switch between the Field look and the futuristic Neo look">◐ Neo look</button>
     <button class="btn danger" id="btnReset">Reset board</button>
   </div>
+
+  <nav class="xnav" aria-label="Companion dashboards">
+    <span class="xnav-k">Other dashboards</span>
+    <a href="psg.html" target="_blank" rel="noopener"><span class="ico">📋</span>PSG Field View</a>
+    <a href="medic.html" target="_blank" rel="noopener" class="xmedic"><span class="ico">🚑</span>Medic Dashboard</a>
+  </nav>
 
   <div id="aarModal" class="bk-modal" hidden>
     <div class="bk-card bk-card-wide">
