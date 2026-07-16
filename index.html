@@ -216,6 +216,22 @@
   .aar-heatbadge .dot{width:9px;height:9px;border-radius:50%;flex:none}
   .aar-narr textarea{width:100%;min-height:54px;resize:vertical;font-family:var(--sans);font-size:13px;line-height:1.5;background:var(--panel);border:1px solid var(--line-soft);border-radius:6px;color:var(--ink);padding:8px}
   .aar-prepared{margin-top:16px;padding-top:12px;border-top:1px solid var(--line-soft);font-family:var(--mono);font-size:12px;color:var(--muted)}
+  /* end-of-camp day-by-day table + camp-meta inputs */
+  .cl-meta{display:flex;flex-wrap:wrap;gap:10px;margin:2px 0 4px}
+  .cl-meta label{display:flex;flex-direction:column;gap:3px;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .cl-meta input{width:auto;min-width:150px}
+  .cl-tablewrap{overflow-x:auto}
+  .cl-table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:560px}
+  .cl-table th{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:800;text-align:left;padding:4px 6px;border-bottom:1px solid var(--line)}
+  .cl-table td{padding:3px 5px;border-bottom:1px solid var(--line-soft);vertical-align:middle}
+  .cl-table input{font-size:12.5px;padding:5px 6px}
+  .cl-table .cl-num input{text-align:center;font-family:var(--mono)}
+  .cl-table .cl-day input{font-weight:700}
+  .cl-table td.cl-delta{font-family:var(--mono);text-align:center;color:var(--muted)}
+  .cl-del{background:none;border:1px solid var(--line-soft);color:var(--muted);border-radius:5px;min-width:28px;height:30px;cursor:pointer;line-height:1}
+  .cl-del:hover{border-color:var(--red);color:var(--red)}
+  .cl-add{margin-top:8px;background:var(--panel);border:1px dashed var(--line);color:var(--olive-bright);border-radius:6px;padding:8px 14px;cursor:pointer;font-weight:700;font-size:12.5px}
+  .cl-empty{font-size:12.5px;color:var(--muted);font-style:italic;padding:6px 0}
   .bk-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
   .bk-head h2{margin:0;font-size:18px}
   .bk-sub{color:var(--muted);font-size:13px;line-height:1.5;margin:8px 0 12px}
@@ -1041,6 +1057,8 @@
     <button class="btn" id="btnFull">Full screen</button>
     <button class="btn" id="btnCopy">Copy SITREP</button>
     <button class="btn" id="btnAar" title="Auto-filled after-action / end-of-day summary you can copy or download">Daily AAR</button>
+    <button class="btn" id="btnCloseDay" title="Snapshot today's key numbers into the end-of-camp log">Close out day</button>
+    <button class="btn" id="btnCampAar" title="End-of-camp after-action report — day-by-day arc plus camp-wide totals">Camp AAR</button>
     <button class="btn" id="btnPrint">Print</button>
     <button class="btn" id="btnSave" title="Download the whole board as a file you can carry to another computer">Save file</button>
     <button class="btn" id="btnLoad" title="Load a board file saved on another computer">Load file</button>
@@ -1067,6 +1085,22 @@
         <button class="btn" id="aarDownload">Download .txt</button>
         <button class="btn" id="aarRegen" title="Rebuild from the current board">Regenerate</button>
         <button class="btn" id="aarRaw" title="Toggle a plain-text view you can hand-edit before copying">View as text</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="campModal" class="bk-modal" hidden>
+    <div class="bk-card bk-card-wide">
+      <div class="bk-head"><h2>End-of-Camp AAR</h2><button class="btn" id="campClose">Close</button></div>
+      <p class="bk-sub">The whole camp in one report: a <b>day-by-day</b> arc from your end-of-day snapshots, plus <b>camp-wide totals</b> and full logs pulled live from the board. Use <b>Close out day</b> each evening to add a day row. Edit any day cell or narrative below, then copy or download for the record. This does <b>not</b> change the board.</p>
+      <div id="campDoc" class="aar-doc"></div>
+      <textarea id="campBody" class="aar-text" spellcheck="true" aria-label="End-of-camp AAR text" hidden></textarea>
+      <div class="bk-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+        <button class="btn2" id="campCopy">Copy</button>
+        <button class="btn" id="campDownload">Download .txt</button>
+        <button class="btn" id="campCloseDay" title="Snapshot today's key numbers as a day row">Close out current day</button>
+        <button class="btn" id="campRegen" title="Rebuild the camp-wide totals from the current board">Regenerate</button>
+        <button class="btn" id="campRaw" title="Toggle a plain-text view (with full logs) you can hand-edit before copying">View as text</button>
       </div>
     </div>
   </div>
@@ -3430,6 +3464,8 @@ var qrcode = function() {
     heatCas:[],
     supplyRequests:[],
     rfis:[],
+    campLog:[],   // end-of-day snapshots for the end-of-camp AAR (TOC-computer local; see applyRemote)
+    campAar:{datesLabel:"", prepBy:"", summary:"", sustain:"", improve:"", rec:""},
     roster:[],
     activeDay:0,
     activePlatoon:-1,
@@ -3445,6 +3481,9 @@ var qrcode = function() {
     if(!Array.isArray(st.gsas)) st.gsas=[];
     if(!Array.isArray(st.heatCas)) st.heatCas=[];
     if(!Array.isArray(st.supplyRequests)) st.supplyRequests=[];
+    if(!Array.isArray(st.campLog)) st.campLog=[];
+    if(!st.campAar||typeof st.campAar!=="object") st.campAar=defaults().campAar;
+    else st.campAar=Object.assign(defaults().campAar, st.campAar);
     // safe-merge sync bookkeeping: give list records stable ids; keep the merge maps
     if(!st._m||typeof st._m!=="object") st._m={};
     if(!st._tomb||typeof st._tomb!=="object") st._tomb={};
@@ -3569,7 +3608,12 @@ var qrcode = function() {
     syncApplying=true;
     syncBase=JSON.parse(JSON.stringify(board)); // remember the server's merged board as our diff base
     const keepDay=state.activeDay, keepPlat=state.activePlatoon; // day/platoon selection stays per-device
+    // The end-of-camp log/AAR lives on this TOC computer only — it isn't in the sync whitelist, so
+    // the server drops it. Preserve it across the state replace so a sync pull can't wipe it.
+    const keepCampLog=state.campLog, keepCampAar=state.campAar;
     state=migrateState(board);
+    if(Array.isArray(keepCampLog)) state.campLog=keepCampLog;
+    if(keepCampAar && typeof keepCampAar==="object") state.campAar=keepCampAar;
     if(typeof keepDay==="number" && keepDay>=0 && keepDay<CAMP_DAYS.length) state.activeDay=keepDay;
     state.activePlatoon=(typeof keepPlat==="number" && keepPlat>=-1 && keepPlat<state.platoons.length)?keepPlat:-1; // -1 = All (don't snap to Alpha on sync)
     hydrateInputs(); renderAll();
@@ -5083,6 +5127,198 @@ var qrcode = function() {
       const safe=(state.campName||"camp").replace(/[^a-z0-9]+/gi,"-").replace(/^-+|-+$/g,"").toLowerCase()||"camp";
       const blob=new Blob([aarSource()],{type:"text/plain"}); const a=document.createElement("a");
       a.href=URL.createObjectURL(blob); a.download=safe+"-AAR-"+stamp+".txt"; document.body.appendChild(a); a.click();
+      setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},0); }catch(e){}
+  });
+
+  // ===================== END-OF-CAMP AAR (day-by-day capture + camp-wide rollup) =====================
+  // Day snapshots live in state.campLog (TOC-computer local; preserved across sync pulls in applyRemote).
+  function campDateStr(){ const d=new Date(); return MON[d.getMonth()].charAt(0)+MON[d.getMonth()].slice(1).toLowerCase()+" "+d.getDate(); }
+  function campDayLabel(idx){ return (String(state.day||"").trim()) || (idx>=0&&idx<CAMP_DAYS.length?CAMP_DAYS[idx]:"Day"); }
+  function campLogSorted(){
+    const list=(state.campLog||[]).map((r,i)=>({r:r,i:i}));
+    list.sort((a,b)=>{ const ka=(a.r.dayIdx==null?99:a.r.dayIdx), kb=(b.r.dayIdx==null?99:b.r.dayIdx); if(ka!==kb) return ka-kb; return a.i-b.i; });
+    return list.map(x=>x.r);
+  }
+  function campPeakHeat(){
+    let peak=null;
+    (state.campLog||[]).forEach(r=>{ if(r.wbgt!=null&&!isNaN(r.wbgt)&&(peak==null||+r.wbgt>peak)) peak=+r.wbgt; });
+    if(peak==null && state.wbgt!=null && state.wbgt!=="") peak=+state.wbgt;
+    return peak;
+  }
+  function campStats(){
+    const inc=state.incidents||[];
+    const medical=inc.filter(i=>/medical/i.test(String(i.type||""))).length;
+    const closed=inc.filter(i=>String(i.status)==="Closed").length;
+    const hc=state.heatCas||[], strokes=hc.filter(c=>c.type==="Heat stroke").length;
+    const sr=state.supplyRequests||[], filled=sr.filter(r=>r.status==="Filled").length;
+    const gl=state.gsas||[];
+    const rc=rosterCounts();
+    const siWith=(state.sensitive||[]).filter(it=>(+it.qty||0)>0);
+    const siOK=siWith.length?siWith.every(it=>(+it.oh||0)===(+it.qty||0)):null;
+    const siQ=siWith.reduce((a,it)=>a+(+it.qty||0),0);
+    return { incTotal:inc.length, medical:medical, incOpen:inc.length-closed, incClosed:closed,
+      hcTotal:hc.length, strokes:strokes, srTotal:sr.length, srFilled:filled, srOpen:sr.length-filled,
+      gsaN:gl.length, roster:rc, siWith:siWith.length, siOK:siOK, siQ:siQ };
+  }
+  // Snapshot today's key numbers as a day row (updates the row if this camp-day already exists).
+  function closeOutDay(){
+    const idx=(typeof state.activeDay==="number"&&state.activeDay>=0)?state.activeDay:todayIndex();
+    const hasRoster=(state.roster||[]).length>0, rc=rosterCounts(), pt=perstatTotals(), tt=totals();
+    const inN=hasRoster?rc.in:pt.pres, accountable=hasRoster?rc.accountable:pt.asg, pct=hasRoster?rc.pct:tt.pct;
+    const wbgt=(state.wbgt==null||state.wbgt==="")?null:+state.wbgt;
+    const fresh={ dayIdx:idx, day:campDayLabel(idx), date:campDateStr(),
+      inN:String(inN), accountable:accountable, pct:(pct==null?"":String(pct)),
+      wbgt:wbgt, heat:(wbgt==null?"":heatCat(wbgt).name),
+      incTotal:(state.incidents||[]).length, hcTotal:(state.heatCas||[]).length, stamp:hhmmLocal() };
+    let rec=(state.campLog||[]).find(r=>r.dayIdx===idx);
+    if(rec){ Object.assign(rec,fresh); boardNote("Day "+(idx+1)+" updated in camp log ✓"); }
+    else { rec=Object.assign({id:newId(),note:""},fresh); (state.campLog=state.campLog||[]).push(rec); boardNote("Day added to camp log ✓"); }
+    save();
+    if($("campModal") && !$("campModal").hidden && !campRawMode) renderCampDoc();
+  }
+  function campAarText(){
+    const d=new Date(), L=[], line=s=>L.push(s==null?"":s), ca=state.campAar||{};
+    line((state.campName||"CAMP").toUpperCase()+" — END-OF-CAMP AAR");
+    const hdr=[]; if(String(ca.datesLabel||"").trim()) hdr.push("Dates: "+ca.datesLabel.trim()); if(String(ca.prepBy||"").trim()) hdr.push("Prepared by: "+ca.prepBy.trim());
+    if(hdr.length) line(hdr.join("   "));
+    line("DTG: "+dtg(d)); line("");
+    line("1. EXECUTIVE SUMMARY");
+    line("   "+(String(ca.summary||"").trim()||"(none)")); line("");
+    const days=campLogSorted();
+    line("2. DAY-BY-DAY");
+    if(days.length){
+      line("   "+"DAY".padEnd(12)+"DATE".padEnd(9)+"ON-GRD".padEnd(8)+"ACCT%".padEnd(7)+"HEAT".padEnd(13)+"INC/DAY");
+      let prevInc=null;
+      days.forEach(r=>{
+        const delta=(r.incTotal!=null&&prevInc!=null)?(r.incTotal-prevInc):(r.incTotal!=null?r.incTotal:null);
+        prevInc=(r.incTotal!=null)?r.incTotal:prevInc;
+        line("   "+String(r.day||"").padEnd(12)+String(r.date||"").padEnd(9)+String(r.inN||"").padEnd(8)+String(r.pct===""||r.pct==null?"—":r.pct+"%").padEnd(7)+String(r.heat||"—").padEnd(13)+(delta==null?"—":String(delta))+(String(r.note||"").trim()?"   — "+r.note.trim():""));
+      });
+    } else line("   No days closed out. Use \"Close out day\" each evening to build this.");
+    line("");
+    const cs=campStats();
+    line("3. PERSONNEL (final state)");
+    line("   Roster: "+cs.roster.total+" · departed / checked out: "+cs.roster.departed+" · accountable at end: "+cs.roster.accountable);
+    if(cs.roster.total) line("   Final accountability: "+cs.roster.in+"/"+cs.roster.accountable+(cs.roster.pct===null?"":" ("+cs.roster.pct+"%)")+(cs.roster.offsite?" · "+cs.roster.offsite+" off-site":""));
+    line("");
+    line("4. SAFETY & HEAT");
+    const peak=campPeakHeat();
+    line("   Peak heat: "+(peak==null?"no WBGT logged":heatCat(peak).name+" (WBGT "+Math.round(peak)+"°F)"));
+    line("   Heat casualties (camp total): "+cs.hcTotal+(cs.strokes?" ("+cs.strokes+" HEAT STROKE)":""));
+    (state.heatCas||[]).forEach(c=>line("     "+(String(c.time||"").trim()||"----")+" "+(String(c.name||"").trim()||"(unnamed)")+" — "+(c.type||"")+(String(c.action||"").trim()?": "+c.action.trim():"")));
+    line("");
+    line("5. INCIDENTS (camp total "+cs.incTotal+")");
+    line("   Medical: "+cs.medical+" · open: "+cs.incOpen+" · closed: "+cs.incClosed);
+    const inc=incidentsSorted().map(x=>x.r);
+    if(inc.length) inc.forEach((r,i)=>line("   "+(i+1)+". "+(String(r.time||"").trim()||"----")+" — "+(String(r.type||"").trim()||"(untyped)")+(String(r.remarks||"").trim()?" — "+r.remarks.trim():"")+(String(r.medic||"").trim()?"  · medic: "+r.medic.trim():"")));
+    else line("   No incidents logged.");
+    line("");
+    line("6. LOGISTICS");
+    line("   Supply requests: "+cs.srTotal+" ("+cs.srFilled+" filled / "+cs.srOpen+" open)");
+    line("   "+String(state.gsaLabel||"GSAs").toUpperCase()+": "+cs.gsaN);
+    if(cs.siWith) line("   Sensitive items: "+(cs.siOK?"ALL ACCOUNTED ("+cs.siQ+")":"DISCREPANCY")+(state.siCheck?" · last check "+state.siCheck:""));
+    line("");
+    [["7","SUSTAIN (what went well across camp)","sustain"],["8","IMPROVE (what to fix for next year)","improve"],["9","RECOMMENDATIONS / REMARKS","rec"]].forEach(x=>{
+      line(x[0]+". "+x[1]); line("   "+(String(ca[x[2]]||"").trim()||"(none)")); line("");
+    });
+    line("Prepared by: ______________________________");
+    return L.join("\n");
+  }
+  function renderCampDoc(){
+    const doc=$("campDoc"); if(!doc) return;
+    const ca=state.campAar||{}, cs=campStats(), days=campLogSorted(), peak=campPeakHeat();
+    const narr=(n,t,key,ph)=>'<section class="aar-sec aar-narr"><h3><span class="aar-num">'+n+'</span>'+esc(t)+'</h3><div class="aar-secbody"><textarea data-camp="'+key+'" placeholder="'+esc(ph)+'">'+esc(ca[key]||"")+'</textarea></div></section>';
+    let h='<div class="aar-title"><div class="aar-camp">'+esc(state.campName||"CAMP")+'</div>'+
+      '<div class="aar-dt">End-of-Camp After-Action Report</div>'+
+      '<div class="aar-metaline">DTG '+esc(dtg(new Date()))+'</div></div>';
+    h+='<div class="cl-meta"><label>Camp dates<input data-camp="datesLabel" value="'+esc(ca.datesLabel||"")+'" placeholder="e.g. 12–18 Jul 2026"></label>'+
+       '<label>Prepared by<input data-camp="prepBy" value="'+esc(ca.prepBy||"")+'" placeholder="name / role"></label></div>';
+    h+=narr("1","Executive summary","summary","Overall assessment — mission accomplishment, command themes, how the camp went overall.");
+    // 2 — day-by-day table
+    h+='<section class="aar-sec"><h3><span class="aar-num">2</span>Day-by-day</h3><div class="aar-secbody"><div class="cl-tablewrap">';
+    if(days.length){
+      h+='<table class="cl-table"><thead><tr><th>Day</th><th>Date</th><th title="On ground (signed In)">On-grd</th><th title="Accountability %">Acct%</th><th>Heat</th><th title="Incidents that day">Inc/day</th><th>Significant activities</th><th></th></tr></thead><tbody>';
+      let prevInc=null;
+      days.forEach(r=>{
+        const delta=(r.incTotal!=null&&prevInc!=null)?(r.incTotal-prevInc):(r.incTotal!=null?r.incTotal:null);
+        prevInc=(r.incTotal!=null)?r.incTotal:prevInc;
+        h+='<tr>'+
+          '<td class="cl-day"><input data-cl="'+r.id+'" data-f="day" value="'+esc(r.day||"")+'"></td>'+
+          '<td><input data-cl="'+r.id+'" data-f="date" value="'+esc(r.date||"")+'"></td>'+
+          '<td class="cl-num"><input data-cl="'+r.id+'" data-f="inN" value="'+esc(r.inN||"")+'"></td>'+
+          '<td class="cl-num"><input data-cl="'+r.id+'" data-f="pct" value="'+esc(r.pct||"")+'"></td>'+
+          '<td><input data-cl="'+r.id+'" data-f="heat" value="'+esc(r.heat||"")+'"></td>'+
+          '<td class="cl-delta">'+(delta==null?"—":esc(String(delta)))+'</td>'+
+          '<td><input data-cl="'+r.id+'" data-f="note" value="'+esc(r.note||"")+'" placeholder="key events / notes"></td>'+
+          '<td><button class="cl-del" data-delday="'+r.id+'" title="Remove day">×</button></td></tr>';
+      });
+      h+='</tbody></table>';
+    } else {
+      h+='<div class="cl-empty">No days closed out yet. Tap <b>Close out day</b> each evening to add a row — or <b>Add day</b> to backfill an earlier day from your notes.</div>';
+    }
+    h+='<button class="cl-add" data-addday="1">＋ Add day</button></div></div></section>';
+    // 3 — personnel
+    h+='<section class="aar-sec"><h3><span class="aar-num">3</span>Personnel (final)</h3><div class="aar-secbody">'+
+       '<div class="aar-line"><b>'+cs.roster.total+'</b> on roster &middot; <b>'+cs.roster.departed+'</b> departed / checked out &middot; <b>'+cs.roster.accountable+'</b> accountable at end</div>'+
+       (cs.roster.total?'<div class="aar-line"><span class="k">Final accountability: '+cs.roster.in+'/'+cs.roster.accountable+(cs.roster.pct===null?"":' ('+cs.roster.pct+'%)')+(cs.roster.offsite?' &middot; '+cs.roster.offsite+' off-site':'')+'</span></div>':'')+
+       '</div></section>';
+    // 4 — safety & heat
+    h+='<section class="aar-sec"><h3><span class="aar-num">4</span>Safety &amp; heat</h3><div class="aar-secbody">'+
+       '<div class="aar-line">Peak heat: <b>'+(peak==null?"no WBGT logged":esc(heatCat(peak).name)+" (WBGT "+Math.round(peak)+"°F)")+'</b></div>'+
+       '<div class="aar-line">Heat casualties (camp total): <b>'+cs.hcTotal+'</b>'+(cs.strokes?' &middot; <b>'+cs.strokes+'</b> heat stroke':'')+'</div>'+
+       '</div></section>';
+    // 5 — incidents
+    h+='<section class="aar-sec"><h3><span class="aar-num">5</span>Incidents ('+cs.incTotal+')</h3><div class="aar-secbody">'+
+       '<div class="aar-line">Medical: <b>'+cs.medical+'</b> &middot; open: <b>'+cs.incOpen+'</b> &middot; closed: <b>'+cs.incClosed+'</b></div>'+
+       '<div class="aar-line"><span class="k">Full chronological log is in the text version (View as text).</span></div>'+
+       '</div></section>';
+    // 6 — logistics
+    h+='<section class="aar-sec"><h3><span class="aar-num">6</span>Logistics</h3><div class="aar-secbody">'+
+       '<div class="aar-line">Supply requests: <b>'+cs.srTotal+'</b> ('+cs.srFilled+' filled / '+cs.srOpen+' open)</div>'+
+       '<div class="aar-line">'+esc(String(state.gsaLabel||"GSAs"))+': <b>'+cs.gsaN+'</b></div>'+
+       (cs.siWith?'<div class="aar-line">Sensitive items: <b>'+(cs.siOK?"all accounted ("+cs.siQ+")":"DISCREPANCY")+'</b></div>':'')+
+       '</div></section>';
+    h+=narr("7","Sustain","sustain","What went well across the whole camp — keep doing this.");
+    h+=narr("8","Improve","improve","What to fix or do differently next year.");
+    h+=narr("9","Recommendations / remarks","rec","Recommendations for next year's planning, resourcing, schedule, etc.");
+    h+='<div class="aar-prepared">Generated '+esc(hhmmLocal())+' local'+(String(ca.prepBy||"").trim()?" &middot; "+esc(ca.prepBy.trim()):"")+'</div>';
+    doc.innerHTML=h;
+    doc.querySelectorAll('.aar-narr textarea').forEach(autoGrowRm);
+  }
+  let campRawMode=false;
+  function campSource(){ return campRawMode?$("campBody").value:campAarText(); }
+  function openCampAar(){ campRawMode=false; renderCampDoc(); $("campDoc").hidden=false; $("campBody").hidden=true; $("campRaw").textContent="View as text"; $("campModal").hidden=false; }
+  function closeCampAar(){ $("campModal").hidden=true; }
+  $("btnCloseDay").addEventListener("click",closeOutDay);
+  $("btnCampAar").addEventListener("click",openCampAar);
+  $("campClose").addEventListener("click",closeCampAar);
+  $("campCloseDay").addEventListener("click",closeOutDay);
+  $("campModal").addEventListener("click",e=>{ if(e.target===$("campModal")) closeCampAar(); });
+  $("campDoc").addEventListener("input",e=>{
+    const t=e.target, ds=t.dataset||{};
+    if(ds.camp && state.campAar && state.campAar.hasOwnProperty(ds.camp)){ state.campAar[ds.camp]=t.value; save(); if(t.tagName==="TEXTAREA") autoGrowRm(t); return; }
+    if(ds.cl!=null && ds.f){ const rec=(state.campLog||[]).find(r=>r.id===ds.cl); if(rec){ rec[ds.f]=t.value; save(); } }
+  });
+  $("campDoc").addEventListener("click",e=>{
+    const t=e.target, ds=t.dataset||{};
+    if(ds.addday!=null){ (state.campLog=state.campLog||[]).push({id:newId(),dayIdx:null,day:"",date:"",inN:"",pct:"",heat:"",note:"",incTotal:null,hcTotal:null,wbgt:null}); save(); renderCampDoc(); return; }
+    if(ds.delday!=null){ state.campLog=(state.campLog||[]).filter(r=>r.id!==ds.delday); save(); renderCampDoc(); return; }
+  });
+  $("campRaw").addEventListener("click",()=>{
+    campRawMode=!campRawMode;
+    if(campRawMode){ $("campBody").value=campAarText(); $("campBody").hidden=false; $("campDoc").hidden=true; $("campRaw").textContent="Back to preview"; }
+    else { renderCampDoc(); $("campDoc").hidden=false; $("campBody").hidden=true; $("campRaw").textContent="View as text"; }
+  });
+  $("campRegen").addEventListener("click",()=>{ if(campRawMode) $("campBody").value=campAarText(); else renderCampDoc(); });
+  $("campCopy").addEventListener("click",()=>{
+    const txt=campSource(); const done=()=>{ const b=$("campCopy"); const o=b.textContent; b.textContent="Copied ✓"; setTimeout(()=>b.textContent=o,1400); };
+    if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(done).catch(()=>fallbackCopy(txt,done)); } else fallbackCopy(txt,done);
+  });
+  $("campDownload").addEventListener("click",()=>{
+    try{ const d=new Date(); const stamp=d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+"-"+pad(d.getHours())+pad(d.getMinutes());
+      const safe=(state.campName||"camp").replace(/[^a-z0-9]+/gi,"-").replace(/^-+|-+$/g,"").toLowerCase()||"camp";
+      const blob=new Blob([campSource()],{type:"text/plain"}); const a=document.createElement("a");
+      a.href=URL.createObjectURL(blob); a.download=safe+"-END-OF-CAMP-AAR-"+stamp+".txt"; document.body.appendChild(a); a.click();
       setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},0); }catch(e){}
   });
 
