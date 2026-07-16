@@ -599,10 +599,16 @@
   html[data-theme="neo"] .ps-hero-pct span{ text-shadow:0 0 22px rgba(87,230,255,.35) }
   html[data-theme="neo"] .ps-bar{ box-shadow:0 0 16px -6px rgba(87,230,255,.55) }
   html[data-theme="neo"] .si-chip,html[data-theme="neo"] .fm-h>span:last-child{ background:rgba(120,210,235,.09) }
-  /* status pills (ok/bad) as translucent tinted glass with bright text so they read like the other Neo chips */
-  html[data-theme="neo"] .si-chip.ok,html[data-theme="neo"] .fm-h.fm-h-ok>span:last-child{ background:rgba(43,245,164,.15);color:var(--green);border-color:rgba(43,245,164,.5) }
+  /* "all good" pills read like the neutral Neo chips — the big ALL-ACCOUNTED banner already carries the positive signal, so these don't stand out in green */
+  html[data-theme="neo"] .si-chip.ok{ background:rgba(120,210,235,.09);color:var(--ink);border-color:var(--line-soft) }
+  html[data-theme="neo"] .fm-h.fm-h-ok>span:last-child{ background:rgba(120,210,235,.09);color:var(--ink);border-color:var(--line) }
+  /* a genuine shortage stays a red alert — matches the alert language used elsewhere (heat, not-signed-in) */
   html[data-theme="neo"] .si-chip.bad{ background:rgba(255,84,112,.16);color:var(--red);border-color:rgba(255,84,112,.55) }
   html[data-theme="neo"] .si-chip.none{ color:var(--muted) }
+  /* per-item status column: calm glass tints instead of loud solid blocks, keeping the ok/short/over meaning */
+  html[data-theme="neo"] .si-status.si-ok{ background:rgba(120,210,235,.09);color:var(--ink);border-color:var(--line-soft) }
+  html[data-theme="neo"] .si-status.si-short{ background:rgba(255,84,112,.16);color:var(--red);border-color:rgba(255,84,112,.55) }
+  html[data-theme="neo"] .si-status.si-over{ background:rgba(255,210,58,.16);color:var(--amber);border-color:rgba(255,210,58,.5) }
   html[data-theme="neo"] .btn,html[data-theme="neo"] .btn2,html[data-theme="neo"] .add-btn{ background:rgba(120,210,235,.06) }
   html[data-theme="neo"] .btn:hover,html[data-theme="neo"] .btn2:hover{ border-color:var(--olive-bright);box-shadow:0 0 14px -4px var(--olive-bright) }
   html[data-theme="neo"] input,html[data-theme="neo"] select,html[data-theme="neo"] textarea{ background:rgba(7,12,22,.86);border-color:var(--line-soft);color:var(--ink) }
