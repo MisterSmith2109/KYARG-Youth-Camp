@@ -134,7 +134,8 @@
   var MOVES=FACING.concat(MARCHING); // 17 total
   var GROUPS=[
     {n:1, platoons:["Alpha Smurfs","Red Bandits","Maroon Typhoons","Foxtrot Fairies"]},
-    {n:2, platoons:["Ninja Turtles","Cutie Patooties","G-Flex","Pink Power Rangers"]}
+    {n:2, platoons:["Ninja Turtles","Cutie Patooties","G-Flex","Pink Power Rangers"]},
+    {n:3, label:"Camp Loucon", platoons:["Camp Loucon"]}
   ];
   var RATE=[["precision","Precision of marching"],["difficulty","Degree of difficulty"],["originality","Originality"]];
 
@@ -230,7 +231,7 @@
     var box=$("groups"); box.innerHTML="";
     GROUPS.forEach(function(g){
       var gd=document.createElement("div"); gd.className="grp";
-      gd.innerHTML='<div class="grp-h">Group '+g.n+'</div>';
+      gd.innerHTML='<div class="grp-h">'+esc(g.label||("Group "+g.n))+'</div>';
       g.platoons.forEach(function(p){
         var card=document.createElement("div"); card.className="card"; card.id="card-"+slug(p); card.setAttribute("data-plt",p);
         gd.appendChild(card);

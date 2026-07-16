@@ -3783,7 +3783,8 @@ var qrcode = function() {
   // ---------- D&C competition tally ----------
   const DC_GROUPS=[
     {n:1, platoons:["Alpha Smurfs","Red Bandits","Maroon Typhoons","Foxtrot Fairies"]},
-    {n:2, platoons:["Ninja Turtles","Cutie Patooties","G-Flex","Pink Power Rangers"]}
+    {n:2, platoons:["Ninja Turtles","Cutie Patooties","G-Flex","Pink Power Rangers"]},
+    {n:3, label:"Camp Loucon", platoons:["Camp Loucon"]}
   ];
   function renderDc(){
     const tally=$("dcTally"); if(!tally) return;
@@ -3797,11 +3798,12 @@ var qrcode = function() {
     DC_GROUPS.forEach(g=>{
       const rows=g.platoons.map(p=>{ const jr=byP[p]||{}; let sum=0,cnt=0; judges.forEach(j=>{ if(jr[j]!=null){ sum+=jr[j]; cnt++; } }); return {p:p,jr:jr,sum:sum,cnt:cnt}; });
       const anyScored=rows.some(r=>r.cnt>0);
+      const showWinner=g.platoons.length>1; // a solo group (e.g. Camp Loucon) isn't ranked head-to-head
       const maxSum=anyScored?Math.max.apply(null,rows.filter(r=>r.cnt>0).map(r=>r.sum)):0;
-      h+='<div class="dc-group"><div class="dc-gh">Group '+g.n+'</div><div class="tbl-scroll"><table class="dc-table"><thead><tr><th>Platoon</th>'+
+      h+='<div class="dc-group"><div class="dc-gh">'+esc(g.label||("Group "+g.n))+'</div><div class="tbl-scroll"><table class="dc-table"><thead><tr><th>Platoon</th>'+
         judges.map(j=>'<th>'+esc(j)+'</th>').join("")+'<th>Combined</th></tr></thead><tbody>';
       rows.slice().sort((a,b)=>b.sum-a.sum).forEach(r=>{
-        const win=anyScored && r.cnt>0 && r.sum===maxSum;
+        const win=showWinner && anyScored && r.cnt>0 && r.sum===maxSum;
         h+='<tr'+(win?' class="dc-win"':'')+'><td class="dc-plt">'+esc(r.p)+(win?' <span class="dc-badge">1st</span>':'')+'</td>'+
           judges.map(j=>'<td class="dc-num">'+(r.jr[j]!=null?r.jr[j]:'—')+'</td>').join("")+
           '<td class="dc-num dc-comb">'+(r.cnt?r.sum:'—')+'</td></tr>';
