@@ -4149,13 +4149,44 @@ var qrcode = function() {
   }
 
   // ---------- render incidents ----------
+  // Chronological sort key for an incident's time. Handles DTG (DDHHMM[Z], e.g. "160026Z") and
+  // imported "date time" / bare "HH:MM"/"2:30 PM" strings, converting each to a real instant so the
+  // log reads earliest-first (start of day → end of day) regardless of format. Blank/unparseable last.
+  function incidentInstant(t){
+    const s=String(t==null?"":t).trim();
+    if(!s) return null;
+    const dtg=s.match(/^(\d{2})(\d{2})(\d{2})\s*Z?$/i);                    // DDHHMM[Z] Zulu
+    if(dtg){ const now=new Date(); return Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),+dtg[1],+dtg[2],+dtg[3]); }
+    const p=Date.parse(s);                                                // "7/16/2026 14:30", ISO, etc.
+    if(!isNaN(p)) return p;
+    const hm=s.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*([ap])\.?m?\.?$/i);  // "2:30 PM"
+    if(hm){ let h=+hm[1]; const mn=+hm[2], ap=hm[3].toLowerCase();
+      if(ap==="p"&&h<12)h+=12; if(ap==="a"&&h===12)h=0;
+      const d=new Date(); d.setHours(h,mn,0,0); return d.getTime(); }
+    const h24=s.match(/^(\d{1,2}):(\d{2})$/);                             // bare 24h "14:30"
+    if(h24){ const d=new Date(); d.setHours(+h24[1],+h24[2],0,0); return d.getTime(); }
+    return null;
+  }
+  // Incidents in chronological order (earliest first), each carrying its original index for editing.
+  function incidentsSorted(){
+    const list=(state.incidents||[]).map((r,i)=>({r:r,i:i}));
+    list.sort((a,b)=>{
+      const ka=incidentInstant(a.r.time), kb=incidentInstant(b.r.time);
+      if(ka==null&&kb==null) return a.i-b.i;   // both undated: keep insertion order
+      if(ka==null) return 1;                   // undated → end
+      if(kb==null) return -1;
+      if(ka!==kb) return ka-kb;                // earliest first
+      return a.i-b.i;                          // tie: stable
+    });
+    return list;
+  }
   function renderInc(){
     const b=$("incBody"); b.innerHTML="";
     if(state.incidents.length===0){
       b.innerHTML='<div class="inc-empty">No incidents logged. Board is green.</div>';
       return;
     }
-    state.incidents.forEach((r,i)=>{
+    incidentsSorted().forEach(({r,i})=>{
       const row=document.createElement("div");
       row.className="inc-row";
       row.innerHTML=
@@ -4848,7 +4879,7 @@ var qrcode = function() {
     if(state.incidents.length){
       L.push("");
       L.push("INCIDENTS");
-      state.incidents.forEach((r,i)=>L.push("  "+(i+1)+". "+(r.time||"----")+" \u2014 "+(r.type||"(untyped)")+(r.remarks?" \u2014 "+r.remarks:"")+(String(r.medic||"").trim()?"  \u00b7 medic: "+r.medic.trim():"")));
+      incidentsSorted().forEach(({r},i)=>L.push("  "+(i+1)+". "+(r.time||"----")+" \u2014 "+(r.type||"(untyped)")+(r.remarks?" \u2014 "+r.remarks:"")+(String(r.medic||"").trim()?"  \u00b7 medic: "+r.medic.trim():"")));
     }
     return L.join("\n");
   }
@@ -4906,7 +4937,7 @@ var qrcode = function() {
       } else line("   HEAT CASUALTIES: none logged."); }
     line("");
 
-    { const inc=state.incidents||[];
+    { const inc=incidentsSorted().map(x=>x.r);
       line("3. INCIDENTS ("+inc.length+")");
       if(inc.length) inc.forEach((r,i)=>line("   "+(i+1)+". "+(String(r.time||"").trim()||"----")+" — "+(String(r.type||"").trim()||"(untyped)")+(String(r.remarks||"").trim()?" — "+r.remarks.trim():"")+(String(r.medic||"").trim()?"  · medic: "+r.medic.trim():"")));
       else line("   No incidents logged."); }
@@ -4998,7 +5029,7 @@ var qrcode = function() {
     h+=sec(2,"Heat / Safety",a2);
 
     // 3 — Incidents
-    const inc=state.incidents||[];
+    const inc=incidentsSorted().map(x=>x.r);
     h+=sec(3,"Incidents ("+inc.length+")", inc.length?li(inc.map(r=>esc((String(r.time||"").trim()||"----")+" — "+(String(r.type||"").trim()||"(untyped)")+(String(r.remarks||"").trim()?" — "+r.remarks.trim():""))+(String(r.medic||"").trim()?' <span class="k">&middot; medic: '+esc(r.medic.trim())+'</span>':""))):empty("No incidents logged."));
 
     // 4 — Supply
