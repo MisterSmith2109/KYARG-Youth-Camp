@@ -73,7 +73,7 @@ from a phone, not just a laptop or wall display.
   and appears in the SITREP.
 - **Daily Schedule** *(new)* — a full **week × platoon** schedule. Pick a **day**
   (Saturday–Friday), then a **platoon** (Alpha–Hotel), to see that platoon's
-  activities for that day. The 2026 camp week is pre-loaded from the schedule
+  activities for that day. The 2027 camp week is pre-loaded from the schedule
   workbook, with **locations** filled in from the workbook's Locations &
   Trainers sheet where they could be matched. **Status advances automatically
   with the clock** — each event reads Upcoming, then Now, then Done as its time
@@ -230,7 +230,7 @@ you move a board between computers by hand.
 3. In the **Weather** panel, type your camp's `lat, lon` and press *Set* (or
    press *Locate* to use the device's location).
 4. Add your campers/staff in **Roster · Sign-In**. In **Daily Schedule**, pick a
-   day and platoon; the 2026 camp week is already loaded. Rename platoons once
+   day and platoon; the 2027 camp week is already loaded. Rename platoons once
    the campers choose names, and tweak any activities as needed.
 5. In **Heat Condition · WBGT**, enter a meter reading or press *Use weather
    estimate* to set the heat flag for the day.
