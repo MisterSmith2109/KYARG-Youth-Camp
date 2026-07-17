@@ -108,6 +108,7 @@
   .abtn.roster{background:#1f1a2b;border-color:#8a76a8;color:#dccff0}
   .abtn.docs{background:#1a2118;border-color:var(--olive);color:var(--olive-bright)}
   .abtn.aar{background:#15202a;border-color:#5a8ca8;color:#cfe6f2}
+  .abtn.paar{background:#1a2118;border-color:var(--olive);color:var(--olive-bright)}
   .aar-out{font-family:var(--mono);font-size:12px;line-height:1.5;white-space:pre-wrap;word-wrap:break-word;background:var(--panel-2);border:1px solid var(--line-soft);border-radius:8px;padding:10px;max-height:56vh;overflow:auto;color:var(--ink)}
   .abtn.account{grid-column:1/-1;background:#10231a;border-color:var(--green);color:#cdeccd}
   /* take accountability sheet */
@@ -341,6 +342,7 @@
     <button class="abtn roster" id="btnRoster"><span class="ico">👥</span>Platoon Roster</button>
     <button class="abtn docs" id="btnDocs"><span class="ico">📁</span>Documents</button>
     <button class="abtn aar" id="btnCampAar"><span class="ico">📋</span>Camp AAR</button>
+    <button class="abtn paar" id="btnPlatoonAar"><span class="ico">✍️</span>Platoon AAR</button>
   </div>
 
   <div class="card myreq hide" id="myReqCard">
@@ -515,6 +517,20 @@
     <div class="aar-out" id="campAarOut">—</div>
     <div style="display:flex;gap:8px;margin-top:12px"><button class="primary" id="campAarCopy" style="margin-top:0">Copy</button><button class="primary" id="campAarDl" style="margin-top:0;background:var(--panel-2);color:var(--ink);border-color:var(--line)">Download</button></div>
     <div style="text-align:center;margin-top:10px"><button class="linkbtn" id="campAarClose">Done</button></div>
+  </div>
+</div>
+
+<!-- platoon AAR — the PSG's own after-action review (what went well / what to change) -->
+<div class="overlay hide" id="platoonAar">
+  <div class="sheet">
+    <h1>Platoon AAR</h1>
+    <p>Your platoon&rsquo;s after-action review. Saved on this phone as you type. Copy or download it to hand up the chain.</p>
+    <div class="field"><label>Significant activities / what happened</label><textarea id="paSig" rows="2" placeholder="key events, missions, training this week"></textarea></div>
+    <div class="field"><label>Sustain — what went well</label><textarea id="paSustain" rows="3" placeholder="what worked; keep doing this"></textarea></div>
+    <div class="field"><label>Improve — what to change</label><textarea id="paImprove" rows="3" placeholder="what to fix or do differently next time"></textarea></div>
+    <div class="field"><label>Recommendations</label><textarea id="paRec" rows="2" placeholder="recommendations for next year"></textarea></div>
+    <div style="display:flex;gap:8px"><button class="primary" id="paCopy" style="margin-top:0">Copy</button><button class="primary" id="paDl" style="margin-top:0;background:var(--panel-2);color:var(--ink);border-color:var(--line)">Download</button></div>
+    <div style="text-align:center;margin-top:10px"><button class="linkbtn" id="paClose">Done</button></div>
   </div>
 </div>
 
@@ -1329,6 +1345,44 @@
   function closeCampAar(){ $("campAar").classList.add("hide"); }
   $("btnCampAar").addEventListener("click",openCampAar);
   $("campAarClose").addEventListener("click",closeCampAar);
+
+  // ---------- platoon AAR (the PSG's own after-action review, saved on this phone) ----------
+  var LS_PAAR="kyarng-psg-aar";
+  var PAAR_FIELDS=[["paSig","sig"],["paSustain","sustain"],["paImprove","improve"],["paRec","rec"]];
+  function loadPaar(){ try{ var o=JSON.parse(localStorage.getItem(LS_PAAR)||"{}"); return (o&&typeof o==="object")?o:{}; }catch(e){ return {}; } }
+  function savePaar(o){ try{ localStorage.setItem(LS_PAAR, JSON.stringify(o||{})); }catch(e){} }
+  function paarText(){
+    var o=loadPaar(), c=campNow(), b=state.board||{}, L=[], line=function(s){ L.push(s==null?"":s); };
+    line((b.campName||"KYARNG Youth Camp").toUpperCase()+" — PLATOON AAR");
+    line((state.platoon?state.platoon+" · ":"")+"generated "+pad(c.h)+":"+pad(c.m)+" local");
+    line("");
+    [["Significant activities / what happened","sig"],["Sustain (what went well)","sustain"],
+     ["Improve (what to change)","improve"],["Recommendations","rec"]].forEach(function(x){
+      line(x[0].toUpperCase());
+      var v=String(o[x[1]]||"").trim();
+      if(v) v.split(/\r?\n/).forEach(function(ln){ ln=ln.trim(); if(ln) line("  - "+ln.replace(/^[-•]\s*/,"")); });
+      else line("  - ");
+      line("");
+    });
+    line("PSG: ______________________________");
+    return L.join("\n");
+  }
+  function openPlatoonAar(){ var o=loadPaar(); PAAR_FIELDS.forEach(function(f){ var el=$(f[0]); if(el) el.value=o[f[1]]||""; }); $("platoonAar").classList.remove("hide"); }
+  function closePlatoonAar(){ $("platoonAar").classList.add("hide"); }
+  function paarInput(){ var o={}; PAAR_FIELDS.forEach(function(f){ var el=$(f[0]); o[f[1]]=el?el.value:""; }); savePaar(o); }
+  $("btnPlatoonAar").addEventListener("click",openPlatoonAar);
+  $("paClose").addEventListener("click",closePlatoonAar);
+  PAAR_FIELDS.forEach(function(f){ var el=$(f[0]); if(el) el.addEventListener("input",paarInput); });
+  $("paCopy").addEventListener("click",function(){ paarInput(); copyText(paarText(),"Platoon AAR copied ✓"); });
+  $("paDl").addEventListener("click",function(){
+    paarInput();
+    try{ var d0=new Date(), stamp=d0.getFullYear()+pad(d0.getMonth()+1)+pad(d0.getDate())+"-"+pad(d0.getHours())+pad(d0.getMinutes());
+      var safe=((state.platoon||"platoon")+"-aar").replace(/[^a-z0-9]+/gi,"-").replace(/^-+|-+$/g,"").toLowerCase()||"platoon-aar";
+      var blob=new Blob([paarText()],{type:"text/plain"}), a=document.createElement("a");
+      a.href=URL.createObjectURL(blob); a.download=safe+"-"+stamp+".txt"; document.body.appendChild(a); a.click();
+      setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },0);
+    }catch(e){ toast("Download failed — try Copy.",true); }
+  });
   $("campAarCopy").addEventListener("click",function(){ copyText(campAarText(),"Camp AAR copied ✓"); });
   $("campAarDl").addEventListener("click",function(){
     try{ var d0=new Date(), stamp=d0.getFullYear()+pad(d0.getMonth()+1)+pad(d0.getDate())+"-"+pad(d0.getHours())+pad(d0.getMinutes());
