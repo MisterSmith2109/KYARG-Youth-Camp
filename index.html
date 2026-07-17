@@ -207,7 +207,7 @@
   .aar-big{font-family:var(--mono);font-weight:800;font-size:16px;color:var(--ink)}
   .aar-chips{display:flex;flex-wrap:wrap;gap:6px;margin:7px 0}
   .aar-chip{font-family:var(--mono);font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;border:1px solid var(--line-soft);background:var(--panel);color:var(--ink);white-space:nowrap}
-  .aar-chip.on{color:var(--green);border-color:rgba(95,174,90,.4)} .aar-chip.off{color:var(--steel);border-color:rgba(90,155,181,.4)} .aar-chip.warn{color:var(--amber);border-color:rgba(224,165,59,.4)} .aar-chip.dim{color:var(--muted)}
+  .aar-chip.on{color:var(--green);border-color:rgba(95,174,90,.4)} .aar-chip.off{color:var(--steel);border-color:rgba(90,155,181,.4)} .aar-chip.pend{color:#c9a3e0;border-color:rgba(180,142,173,.5)} .aar-chip.warn{color:var(--amber);border-color:rgba(224,165,59,.4)} .aar-chip.dim{color:var(--muted)}
   .aar-list{margin:5px 0 0;padding:0;list-style:none}
   .aar-list li{font-size:12.5px;color:var(--ink);padding:2px 0 2px 13px;position:relative;line-height:1.45}
   .aar-list li::before{content:"\203A";position:absolute;left:0;color:var(--olive-bright);font-weight:700}
@@ -339,7 +339,7 @@
     .panel,.tile,.meta{border-color:#999;background:#fff}
     .tile .t-val{color:#000}
     .eyebrow,.panel-head h2,.dtg .z{color:#000}
-    .r-in,.r-offsite,.r-out,.r-departed,.r-absent,.sch-Now,.sch-Done,.sch-Upcoming{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .r-in,.r-offsite,.r-pending,.r-out,.r-departed,.r-absent,.sch-Now,.sch-Done,.sch-Upcoming{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   }
   /* Kiosk start overlay */
   #startOverlay{
@@ -408,6 +408,7 @@
   select.status{width:auto;min-width:98px;max-width:130px;padding-left:6px;padding-right:6px;letter-spacing:.03em}
   .r-in{color:#0f1a0e;background:var(--green);border-color:var(--green)}
   .r-offsite{color:#04141b;background:var(--steel);border-color:var(--steel)}
+  .r-pending{color:#1c1226;background:#b48ead;border-color:#b48ead}
   .r-out{color:#241a05;background:var(--amber);border-color:var(--amber)}
   .r-departed{color:#e9ead9;background:#5a5560;border-color:#5a5560}
   .r-absent{color:#e9ead9;background:var(--black-status);border-color:var(--black-status)}
@@ -517,7 +518,7 @@
   .pa-row.pa-empty{border-left-color:var(--line)}
   .pa-name{font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .pa-nums{font-family:var(--mono);font-size:13px;color:var(--muted);white-space:nowrap;flex:none}
-  .pa-nums b{color:var(--ink);font-size:15px} .pa-out{color:var(--amber);font-weight:700} .pa-off{color:var(--steel);font-weight:700}
+  .pa-nums b{color:var(--ink);font-size:15px} .pa-out{color:var(--amber);font-weight:700} .pa-off{color:var(--steel);font-weight:700} .pa-pend{color:#c9a3e0;font-weight:700}
   .fm-banner{border-radius:8px;border:1px solid var(--line);padding:14px 16px;margin-bottom:14px;display:flex;flex-direction:column;gap:3px;background:var(--panel-2)}
   .fm-banner.ok{background:var(--green);color:#0f1a0e;border-color:var(--green)}
   .fm-banner.warn{background:var(--red);color:#2a0d08;border-color:var(--red)}
@@ -815,6 +816,10 @@
           <div class="fm-list fm-offlist" id="fmOff"></div>
         </div>
         <div>
+          <div class="fm-h"><span>Pending &middot; signing out</span><span id="fmPendN"></span></div>
+          <div class="fm-list fm-pendlist" id="fmPend"></div>
+        </div>
+        <div>
           <div class="fm-h"><span>Departed &middot; done with camp</span><span id="fmDepN"></span></div>
           <div class="fm-list fm-dim" id="fmDep"></div>
         </div>
@@ -841,17 +846,17 @@
   <div class="panel">
     <div class="panel-head"><h2>PERSTAT</h2><span class="hint">personnel status &middot; by group</span></div>
     <div class="panel-body">
-      <div class="panel-sub">Auto-summarized from the <b>Roster</b>. <b>Assigned</b> = accountable people in that group (<b>Departed</b> and <b>Absent</b> drop out); <b>Present</b> = signed <b>In</b> (on ground); <b>Off-site</b> = accounted for but off the property; <b>Gap</b> = still unaccounted (out).</div>
+      <div class="panel-sub">Auto-summarized from the <b>Roster</b>. <b>Assigned</b> = accountable people in that group (<b>Departed</b> and <b>Absent</b> drop out); <b>Present</b> = signed <b>In</b> (on ground); <b>Off / Pend</b> = accounted for but off the ground (off-site or pending sign-out); <b>Gap</b> = still unaccounted (out).</div>
       <div class="ps-hero" id="psHero">
-        <div class="ps-hero-pct"><span id="psPct">&mdash;</span><label>on ground + off-site</label></div>
+        <div class="ps-hero-pct"><span id="psPct">&mdash;</span><label>accounted for</label></div>
         <div class="ps-hero-mid">
           <div id="psHeroBar"><div class="ps-bar"></div></div>
-          <div class="ps-legend"><span class="lg pres">Present</span><span class="lg off">Off-site</span><span class="lg gap">Gap</span></div>
+          <div class="ps-legend"><span class="lg pres">Present</span><span class="lg off">Off / Pend</span><span class="lg gap">Gap</span></div>
         </div>
         <div class="ps-hero-nums">
           <div class="ps-stat"><b id="perAsg">0</b><span>Assigned</span></div>
           <div class="ps-stat"><b id="perPres" class="pres">0</b><span>Present</span></div>
-          <div class="ps-stat"><b id="perOff" class="off">0</b><span>Off-site</span></div>
+          <div class="ps-stat"><b id="perOff" class="off">0</b><span>Off / Pend</span></div>
           <div class="ps-stat"><b id="perGap" class="gap">0</b><span>Gap</span></div>
         </div>
       </div>
@@ -3863,14 +3868,15 @@ var qrcode = function() {
     const list=state.roster||[];
     const inn=list.filter(r=>r.status==="In").length;
     const off=list.filter(r=>r.status==="Off-site").length;
+    const pend=list.filter(r=>r.status==="Pending").length;
     const dep=list.filter(r=>r.status==="Departed").length;
     const abs=list.filter(r=>r.status==="Absent").length;
-    const out=list.filter(r=>{const s=r.status; return s!=="In"&&s!=="Off-site"&&s!=="Departed"&&s!=="Absent";}).length;
+    const out=list.filter(r=>{const s=r.status; return s!=="In"&&s!=="Off-site"&&s!=="Pending"&&s!=="Departed"&&s!=="Absent";}).length;
     // Departed (done with camp) and Absent (excused) don't count against you.
     const accountable=list.length-abs-dep;
-    // Accounted for = on ground OR off-site-but-located.
-    const accounted=inn+off;
-    return {total:list.length,in:inn,offsite:off,out:out,departed:dep,absent:abs,
+    // Accounted for = on ground, off-site-but-located, or pending sign-out (still on property).
+    const accounted=inn+off+pend;
+    return {total:list.length,in:inn,offsite:off,pending:pend,out:out,departed:dep,absent:abs,
             accountable:accountable,accounted:accounted,
             pct:accountable>0?Math.round(accounted/accountable*1000)/10:null};
   }
@@ -4066,8 +4072,13 @@ var qrcode = function() {
   // ---------- render tiles ----------
   function renderTiles(){
     const pt=perstatTotals();
-    if($("valOG")) $("valOG").textContent=pt.pres;
-    if($("ogSub")) $("ogSub").textContent="of "+pt.asg+" accountable"+(pt.off?" · "+pt.off+" off-site":"");
+    if((state.roster||[]).length){ const rc=rosterCounts();
+      if($("valOG")) $("valOG").textContent=rc.in;
+      if($("ogSub")) $("ogSub").textContent="of "+rc.accountable+" accountable"+(rc.offsite?" · "+rc.offsite+" off-site":"")+(rc.pending?" · "+rc.pending+" pending":"");
+    } else {
+      if($("valOG")) $("valOG").textContent=pt.pres;
+      if($("ogSub")) $("ogSub").textContent="of "+pt.asg+" accountable"+(pt.off?" · "+pt.off+" off-site":"");
+    }
     const gsaList=state.gsas||[];
     const gsaOut=gsaList.filter(g=>String(g.holder||"").trim()).length;
     if($("valGsa")) $("valGsa").textContent=gsaList.length;
@@ -4084,7 +4095,7 @@ var qrcode = function() {
     if((state.roster||[]).length>0){
       const rc=rosterCounts();
       pct=rc.pct;
-      sub=rc.in+" in"+(rc.offsite?" · "+rc.offsite+" off-site":"")+" / "+rc.accountable+" accountable"+
+      sub=rc.in+" in"+(rc.offsite?" · "+rc.offsite+" off-site":"")+(rc.pending?" · "+rc.pending+" pending":"")+" / "+rc.accountable+" accountable"+
           (rc.departed?" · "+rc.departed+" departed":"")+(rc.absent?" · "+rc.absent+" absent":"");
       alertGap=(rc.accountable-rc.accounted)>0; // only truly-unaccounted (Out) raises the flag
     }else{
@@ -4111,7 +4122,8 @@ var qrcode = function() {
     const acc=roster.filter(r=>inGroup(r) && r.status!=="Departed" && r.status!=="Absent");
     const asg=acc.length;
     const pres=acc.filter(r=>r.status==="In").length;
-    const off=acc.filter(r=>r.status==="Off-site").length;
+    // "Off" bucket = accounted for but not on the ground: off-site + pending sign-out.
+    const off=acc.filter(r=>r.status==="Off-site"||r.status==="Pending").length;
     return {asg:asg, pres:pres, off:off, gap:asg-pres-off};
   }
   function perstatTotals(){
@@ -4365,8 +4377,8 @@ var qrcode = function() {
  
   // ---------- render roster ----------
   const ROLES=["Camper","Staff","Support","PSG","APSG"];
-  const ROSTER_STATUSES=["In","Off-site","Out","Departed","Absent"];
-  const STATUS_RANK={In:0,"Off-site":1,Out:2,Departed:3,Absent:4};
+  const ROSTER_STATUSES=["In","Off-site","Pending","Out","Departed","Absent"];
+  const STATUS_RANK={In:0,"Off-site":1,Pending:2,Out:3,Departed:4,Absent:5};
   // Returns roster rows in the chosen display order, keeping each row's original index (for editing).
   function rosterSorted(){
     const list=(state.roster||[]).map((r,i)=>({r:r,i:i}));
@@ -4389,7 +4401,7 @@ var qrcode = function() {
     }else{
       rosterSorted().forEach(({r,i})=>{
         const st=r.status||"Out";
-        const cls=st==="In"?"r-in":(st==="Off-site"?"r-offsite":(st==="Departed"?"r-departed":(st==="Absent"?"r-absent":"r-out")));
+        const cls=st==="In"?"r-in":(st==="Off-site"?"r-offsite":(st==="Pending"?"r-pending":(st==="Departed"?"r-departed":(st==="Absent"?"r-absent":"r-out"))));
         const toIn=st!=="In";
         const tr=document.createElement("tr");
         tr.innerHTML=
@@ -4404,7 +4416,7 @@ var qrcode = function() {
       });
     }
     const rc=rosterCounts();
-    const summary="<b>"+rc.in+"</b> in"+(rc.offsite?" · "+rc.offsite+" off-site":"")+" · "+rc.out+" out"+
+    const summary="<b>"+rc.in+"</b> in"+(rc.offsite?" · "+rc.offsite+" off-site":"")+(rc.pending?" · "+rc.pending+" pending":"")+" · "+rc.out+" out"+
       (rc.departed?" · "+rc.departed+" departed":"")+(rc.absent?" · "+rc.absent+" absent":"")+" · "+rc.total+" total";
     if($("rosterCount")) $("rosterCount").innerHTML=summary;
     if($("rosterCountHead")) $("rosterCountHead").innerHTML=summary;
@@ -4421,23 +4433,24 @@ var qrcode = function() {
     const roster=state.roster||[];
     const plats=(state.platoons||[]).map(p=>p&&p.name).filter(Boolean);
     const matched={}, rows=[];
-    const tally=(r,acc)=>{ // acc: mutable {inN,offN,outN,depN,absN,tot}
+    const tally=(r,acc)=>{ // acc: mutable {inN,offN,pendN,outN,depN,absN,tot}
       if(r.status==="In"){ acc.inN++; acc.tot++; }
       else if(r.status==="Off-site"){ acc.offN++; acc.tot++; }
+      else if(r.status==="Pending"){ acc.pendN++; acc.tot++; }
       else if(r.status==="Departed"){ acc.depN++; }
       else if(r.status==="Absent"){ acc.absN++; }
       else { acc.outN++; acc.tot++; } // tot = accountable strength (excludes departed & excused)
     };
     plats.forEach(name=>{
       const set=platoonMatchSet(name);
-      const acc={inN:0,offN:0,outN:0,depN:0,absN:0,tot:0};
+      const acc={inN:0,offN:0,pendN:0,outN:0,depN:0,absN:0,tot:0};
       roster.forEach((r,i)=>{ const g=String(r.group||"").trim().toLowerCase();
         if(set.indexOf(g)>=0){ matched[i]=1; tally(r,acc); } });
-      if(acc.inN+acc.offN+acc.outN+acc.depN+acc.absN>0) rows.push(Object.assign({name:name},acc));
+      if(acc.inN+acc.offN+acc.pendN+acc.outN+acc.depN+acc.absN>0) rows.push(Object.assign({name:name},acc));
     });
-    const u={inN:0,offN:0,outN:0,depN:0,absN:0,tot:0};
+    const u={inN:0,offN:0,pendN:0,outN:0,depN:0,absN:0,tot:0};
     roster.forEach((r,i)=>{ if(!matched[i]) tally(r,u); });
-    if(u.inN+u.offN+u.outN+u.depN+u.absN>0) rows.push(Object.assign({name:"Staff"},u)); // anyone not in a platoon
+    if(u.inN+u.offN+u.pendN+u.outN+u.depN+u.absN>0) rows.push(Object.assign({name:"Staff"},u)); // anyone not in a platoon
     return rows;
   }
   function renderPlatoonAccount(){
@@ -4450,6 +4463,7 @@ var qrcode = function() {
       return '<div class="pa-row '+cls+'"><span class="pa-name">'+esc(x.name)+'</span>'+
         '<span class="pa-nums"><b>'+x.inN+'</b>/'+x.tot+' in'+
         (x.offN?' · <span class="pa-off">'+x.offN+' off-site</span>':'')+
+        (x.pendN?' · <span class="pa-pend">'+x.pendN+' pending</span>':'')+
         (x.outN?' · <span class="pa-out">'+x.outN+' out</span>':'')+
         (x.depN?' · '+x.depN+' departed':'')+
         (x.absN?' · '+x.absN+' exc':'')+'</span></div>';
@@ -4463,9 +4477,10 @@ var qrcode = function() {
     const banner=$("fmBanner"); if(!banner) return;
     const list=state.roster||[];
     const rc=rosterCounts();
-    // "Not signed in" = truly unaccounted: not In, not Off-site (accounted), not Departed, not Absent.
-    const out=list.map((r,i)=>({r:r,i:i})).filter(x=>{const s=x.r.status; return s!=="In"&&s!=="Off-site"&&s!=="Departed"&&s!=="Absent";});
+    // "Not signed in" = truly unaccounted: not In, not Off-site / Pending (accounted), not Departed, not Absent.
+    const out=list.map((r,i)=>({r:r,i:i})).filter(x=>{const s=x.r.status; return s!=="In"&&s!=="Off-site"&&s!=="Pending"&&s!=="Departed"&&s!=="Absent";});
     const offsite=list.filter(r=>r.status==="Off-site");
+    const pending=list.filter(r=>r.status==="Pending");
     const departed=list.filter(r=>r.status==="Departed");
     const abs=list.filter(r=>r.status==="Absent");
     const big=$("fmBig"), sub=$("fmBannerSub"), chip=$("fmChip");
@@ -4485,6 +4500,7 @@ var qrcode = function() {
     // Always show a number (0 included) — no checkmark; a 0 "not signed in" goes green when everyone's in.
     if($("fmOutN")){ $("fmOutN").textContent=String(out.length); const h=$("fmOutN").parentElement; if(h) h.classList.toggle("fm-h-ok", out.length===0 && list.length>0); }
     if($("fmOffN")) $("fmOffN").textContent=String(offsite.length);
+    if($("fmPendN")) $("fmPendN").textContent=String(pending.length);
     if($("fmDepN")) $("fmDepN").textContent=String(departed.length);
     if($("fmAbsN")) $("fmAbsN").textContent=String(abs.length);
     // Not-signed-in list, grouped by PERSTAT group in a fixed order.
@@ -4524,6 +4540,7 @@ var qrcode = function() {
     const countOnly=(el,n,emptyTxt)=>{ if(!el) return;
       el.innerHTML='<div class="fm-empty">'+(n?"See the Sign-in Roster for names.":emptyTxt)+'</div>'; };
     countOnly($("fmOff"),offsite.length,"None off-site.");
+    countOnly($("fmPend"),pending.length,"None pending.");
     countOnly($("fmDep"),departed.length,"None.");
     nameList($("fmAbs"),abs,"None.",false);
     fmDelta();
@@ -5017,7 +5034,7 @@ var qrcode = function() {
       L.push("SENSITIVE ITEMS: "+(siOK?"ALL ACCOUNTED ("+siQ+")":"DISCREPANCY")+(state.siCheck?" · last check "+state.siCheck:""));
       if(!siOK) siWith.filter(it=>(+it.oh||0)!==(+it.qty||0)).forEach(it=>L.push("  "+(it.name||"item")+": "+(+it.oh||0)+"/"+(+it.qty||0)+" on hand"));
     }
-    if((state.roster||[]).length>0){ const rc=rosterCounts(); L.push("ACCOUNTABILITY: "+rc.in+"/"+rc.accountable+(rc.pct===null?"":" ("+rc.pct+"%)")+(rc.offsite?" · "+rc.offsite+" off-site":"")+(rc.departed?" · "+rc.departed+" departed":"")+(rc.absent?" · "+rc.absent+" absent":"")); }
+    if((state.roster||[]).length>0){ const rc=rosterCounts(); L.push("ACCOUNTABILITY: "+rc.in+"/"+rc.accountable+(rc.pct===null?"":" ("+rc.pct+"%)")+(rc.offsite?" · "+rc.offsite+" off-site":"")+(rc.pending?" · "+rc.pending+" pending":"")+(rc.departed?" · "+rc.departed+" departed":"")+(rc.absent?" · "+rc.absent+" absent":"")); }
     else L.push("ACCOUNTABILITY: "+t.pres+"/"+t.asg+(t.pct===null?"":" ("+t.pct+"%)"));
     L.push("");
     L.push("PERSTAT");
@@ -5076,14 +5093,17 @@ var qrcode = function() {
     line("1. ACCOUNTABILITY");
     if((state.roster||[]).length){
       const rc=rosterCounts();
-      line("   ON GROUND: "+rc.in+"/"+rc.accountable+(rc.pct===null?"":" ("+rc.pct+"%)")+(rc.offsite?" · "+rc.offsite+" off-site":"")+(rc.departed?" · "+rc.departed+" departed":"")+(rc.absent?" · "+rc.absent+" excused":""));
+      line("   ON GROUND: "+rc.in+"/"+rc.accountable+(rc.pct===null?"":" ("+rc.pct+"%)")+(rc.offsite?" · "+rc.offsite+" off-site":"")+(rc.pending?" · "+rc.pending+" pending":"")+(rc.departed?" · "+rc.departed+" departed":"")+(rc.absent?" · "+rc.absent+" excused":""));
       const rows=platoonAccountRows();
       if(rows.length){ line("   BY PLATOON:");
         rows.forEach(x=>line("     "+String(x.name||"").padEnd(20)+" "+x.inN+"/"+x.tot+" in"+(x.offN?" · "+x.offN+" off-site":"")+(x.outN?" · "+x.outN+" out":"")+(x.depN?" · "+x.depN+" departed":"")+(x.absN?" · "+x.absN+" exc":""))); }
       const offsite=state.roster.filter(r=>r.status==="Off-site");
       if(offsite.length){ line("   OFF-SITE (accounted for, off property):");
         offsite.forEach(r=>line("     "+(String(r.name||"").trim()||"(unnamed)")+(String(r.group||"").trim()?" / "+r.group.trim():"")+(r.role?" ("+r.role+")":""))); }
-      const notOnGround=state.roster.filter(r=>{const s=r.status;return s!=="In"&&s!=="Off-site"&&s!=="Departed"&&s!=="Absent";});
+      const pendingA=state.roster.filter(r=>r.status==="Pending");
+      if(pendingA.length){ line("   PENDING SIGN-OUT (accounted, checking out):");
+        pendingA.forEach(r=>line("     "+(String(r.name||"").trim()||"(unnamed)")+(String(r.group||"").trim()?" / "+r.group.trim():"")+(r.role?" ("+r.role+")":""))); }
+      const notOnGround=state.roster.filter(r=>{const s=r.status;return s!=="In"&&s!=="Off-site"&&s!=="Pending"&&s!=="Departed"&&s!=="Absent";});
       if(notOnGround.length){ line("   NOT SIGNED IN:");
         notOnGround.forEach(r=>line("     "+(String(r.name||"").trim()||"(unnamed)")+(String(r.group||"").trim()?" / "+r.group.trim():"")+(r.role?" ("+r.role+")":"")));
       } else if(!offsite.length) line("   All accounted for.");
@@ -5167,17 +5187,20 @@ var qrcode = function() {
       a+='<div class="aar-line"><span class="k">On ground:</span> <span class="aar-big">'+rc.in+'/'+rc.accountable+'</span>'+(rc.pct===null?"":' &nbsp;'+rc.pct+'%')+'</div>';
       a+='<div class="aar-chips"><span class="aar-chip on">'+rc.in+' in</span>'+
         (rc.offsite?'<span class="aar-chip off">'+rc.offsite+' off-site</span>':"")+
+        (rc.pending?'<span class="aar-chip pend">'+rc.pending+' pending</span>':"")+
         (rc.out?'<span class="aar-chip warn">'+rc.out+' out</span>':"")+
         (rc.departed?'<span class="aar-chip dim">'+rc.departed+' departed</span>':"")+
         (rc.absent?'<span class="aar-chip dim">'+rc.absent+' excused</span>':"")+'</div>';
       const rows=platoonAccountRows();
-      if(rows.length) a+='<div class="aar-chips">'+rows.map(x=>'<span class="aar-chip">'+esc(x.name)+' '+x.inN+'/'+x.tot+(x.offN?' &middot; '+x.offN+' off':"")+(x.outN?' &middot; '+x.outN+' out':"")+'</span>').join("")+'</div>';
+      if(rows.length) a+='<div class="aar-chips">'+rows.map(x=>'<span class="aar-chip">'+esc(x.name)+' '+x.inN+'/'+x.tot+(x.offN?' &middot; '+x.offN+' off':"")+(x.pendN?' &middot; '+x.pendN+' pend':"")+(x.outN?' &middot; '+x.outN+' out':"")+'</span>').join("")+'</div>';
       const off=state.roster.filter(r=>r.status==="Off-site");
-      const notin=state.roster.filter(r=>{const s=r.status;return s!=="In"&&s!=="Off-site"&&s!=="Departed"&&s!=="Absent";});
+      const pend=state.roster.filter(r=>r.status==="Pending");
+      const notin=state.roster.filter(r=>{const s=r.status;return s!=="In"&&s!=="Off-site"&&s!=="Pending"&&s!=="Departed"&&s!=="Absent";});
       const dep=state.roster.filter(r=>r.status==="Departed");
       if(off.length) a+='<div class="aar-line"><span class="k">Off-site (accounted, off property):</span></div>'+li(off.map(r=>esc(aarNameLine(r))));
+      if(pend.length) a+='<div class="aar-line"><span class="k">Pending sign-out (accounted, checking out):</span></div>'+li(pend.map(r=>esc(aarNameLine(r))));
       if(notin.length) a+='<div class="aar-line"><span class="k">Not signed in:</span></div>'+li(notin.map(r=>esc(aarNameLine(r))));
-      else if(!off.length) a+='<div class="aar-line" style="color:var(--green)">All accounted for.</div>';
+      else if(!off.length&&!pend.length) a+='<div class="aar-line" style="color:var(--green)">All accounted for.</div>';
       if(dep.length) a+='<div class="aar-line"><span class="k">Departed (done with camp):</span></div>'+li(dep.map(r=>esc(aarNameLine(r))+(String(r.last||"").trim()?' <span class="k">&mdash; '+esc(r.last.trim())+'</span>':"")));
     } else { const pt=perstatTotals(); a+='<div class="aar-line"><span class="k">On ground:</span> <span class="aar-big">'+pt.pres+'/'+pt.asg+'</span> <span class="k">(roster empty &mdash; from PERSTAT)</span></div>'; }
     h+=sec(1,"Accountability",a);
@@ -5321,7 +5344,7 @@ var qrcode = function() {
     const cs=campStats();
     line("3. PERSONNEL (final state)");
     line("   Roster: "+cs.roster.total+" · departed / checked out: "+cs.roster.departed+" · accountable at end: "+cs.roster.accountable);
-    if(cs.roster.total) line("   Final accountability: "+cs.roster.in+"/"+cs.roster.accountable+(cs.roster.pct===null?"":" ("+cs.roster.pct+"%)")+(cs.roster.offsite?" · "+cs.roster.offsite+" off-site":""));
+    if(cs.roster.total) line("   Final accountability: "+cs.roster.in+"/"+cs.roster.accountable+(cs.roster.pct===null?"":" ("+cs.roster.pct+"%)")+(cs.roster.offsite?" · "+cs.roster.offsite+" off-site":"")+(cs.roster.pending?" · "+cs.roster.pending+" pending":""));
     line("");
     line("4. SAFETY & HEAT");
     const peak=campPeakHeat();
@@ -5382,7 +5405,7 @@ var qrcode = function() {
     // 3 — personnel
     h+='<section class="aar-sec"><h3><span class="aar-num">3</span>Personnel (final)</h3><div class="aar-secbody">'+
        '<div class="aar-line"><b>'+cs.roster.total+'</b> on roster &middot; <b>'+cs.roster.departed+'</b> departed / checked out &middot; <b>'+cs.roster.accountable+'</b> accountable at end</div>'+
-       (cs.roster.total?'<div class="aar-line"><span class="k">Final accountability: '+cs.roster.in+'/'+cs.roster.accountable+(cs.roster.pct===null?"":' ('+cs.roster.pct+'%)')+(cs.roster.offsite?' &middot; '+cs.roster.offsite+' off-site':'')+'</span></div>':'')+
+       (cs.roster.total?'<div class="aar-line"><span class="k">Final accountability: '+cs.roster.in+'/'+cs.roster.accountable+(cs.roster.pct===null?"":' ('+cs.roster.pct+'%)')+(cs.roster.offsite?' &middot; '+cs.roster.offsite+' off-site':'')+(cs.roster.pending?' &middot; '+cs.roster.pending+' pending':'')+'</span></div>':'')+
        '</div></section>';
     // 4 — safety & heat
     h+='<section class="aar-sec"><h3><span class="aar-num">4</span>Safety &amp; heat</h3><div class="aar-secbody">'+
