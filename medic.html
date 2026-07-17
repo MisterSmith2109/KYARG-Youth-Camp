@@ -89,6 +89,8 @@
   .abtn.call{background:#2a1008;border-color:var(--red);color:#ffcaba}
   .abtn.enc{background:#16202b;border-color:#5a7d8c;color:#cfe3ef}
   .abtn.plan{background:#1a2118;border-color:var(--olive);color:var(--olive-bright)}
+  .abtn.aar{background:#15202a;border-color:#5a8ca8;color:#cfe6f2}
+  .aar-out{font-family:var(--mono);font-size:12px;line-height:1.5;white-space:pre-wrap;word-wrap:break-word;background:var(--panel-2);border:1px solid var(--line-soft);border-radius:8px;padding:10px;max-height:56vh;overflow:auto;color:var(--ink)}
   .abtn.disabled{opacity:.4;pointer-events:none}
 
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--green);color:#0f1a0e;font-weight:700;
@@ -195,6 +197,7 @@
     <a class="abtn form disabled" id="btnForm" target="_blank" rel="noopener"><span class="ico">📝</span>Incident Report Form</a>
     <a class="abtn call" id="btn911" href="tel:911"><span class="ico">🚑</span>Call 911</a>
     <button class="abtn enc" id="btnEnc"><span class="ico">🗒️</span>Encounter Log</button>
+    <button class="abtn aar" id="btnCampAar"><span class="ico">📋</span>Camp AAR</button>
     <button class="abtn plan" id="btnSettings"><span class="ico">⚙️</span>Settings</button>
   </div>
 
@@ -240,6 +243,17 @@
     <div class="sec-hd hide" id="encHead" style="margin-top:16px"><span class="k">Entries</span><button class="linkbtn" id="encCopy">copy all</button></div>
     <div id="encList"></div>
     <div style="text-align:center;margin-top:12px"><button class="linkbtn" id="encClose">Done</button></div>
+  </div>
+</div>
+
+<!-- camp AAR (read-only field rollup from the synced board) -->
+<div class="overlay hide" id="campAar">
+  <div class="sheet">
+    <h1>Camp AAR</h1>
+    <p>An overall camp rollup from the shared board &mdash; personnel, heat, incidents, logistics. Read-only; the day-by-day arc and command narrative live on the TOC.</p>
+    <div class="aar-out" id="campAarOut">—</div>
+    <div style="display:flex;gap:8px;margin-top:12px"><button class="primary" id="campAarCopy" style="margin-top:0">Copy</button><button class="primary" id="campAarDl" style="margin-top:0;background:var(--panel-2);color:var(--ink);border-color:var(--line)">Download</button></div>
+    <div style="text-align:center;margin-top:10px"><button class="linkbtn" id="campAarClose">Done</button></div>
   </div>
 </div>
 
@@ -524,6 +538,69 @@
   $("encAdd").addEventListener("click",addEnc);
   $("encClose").addEventListener("click",closeEnc);
   $("encCopy").addEventListener("click",copyEnc);
+
+  // ---------- camp AAR (read-only rollup built from the synced board) ----------
+  function aarIncKey(t){ t=String(t||"").trim(); if(!t) return Infinity;
+    var m=t.match(/^(\d{2})(\d{2})(\d{2})\s*Z?$/i); if(m){ var now=new Date(); return Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),+m[1],+m[2],+m[3]); }
+    var p=Date.parse(t); if(!isNaN(p)) return p;
+    var hm=t.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*([ap])\.?m?\.?$/i); if(hm){ var h=+hm[1],mn=+hm[2],ap=(hm[3]||"").toLowerCase(); if(ap==="p"&&h<12)h+=12; if(ap==="a"&&h===12)h=0; var d=new Date(); d.setHours(h,mn,0,0); return d.getTime(); }
+    var h24=t.match(/^(\d{1,2}):(\d{2})$/); if(h24){ var d2=new Date(); d2.setHours(+h24[1],+h24[2],0,0); return d2.getTime(); }
+    return Infinity; }
+  function campAarText(){
+    var b=state.board||{}, L=[], line=function(s){ L.push(s==null?"":s); };
+    var c=campNow(), stamp=pad(c.h)+":"+pad(c.m);
+    line((b.campName||"CAMP").toUpperCase()+" — CAMP AAR (field rollup)");
+    line("Generated "+stamp+" local"+(medicName?" · "+medicName:""));
+    line("");
+    var roster=Array.isArray(b.roster)?b.roster:[];
+    var inn=0,off=0,pend=0,out=0,dep=0,abs=0;
+    roster.forEach(function(r){ var s=r&&r.status;
+      if(s==="In")inn++; else if(s==="Off-site")off++; else if(s==="Pending")pend++; else if(s==="Departed")dep++; else if(s==="Absent")abs++; else if(r) out++; });
+    var accountable=roster.length-dep-abs, accounted=inn+off+pend, pct=accountable>0?Math.round(accounted/accountable*1000)/10:null;
+    line("1. PERSONNEL (final)");
+    if(roster.length){
+      line("   Accountability: "+inn+"/"+accountable+(pct===null?"":" ("+pct+"%)")+(off?" · "+off+" off-site":"")+(pend?" · "+pend+" pending":"")+(out?" · "+out+" out":""));
+      line("   Roster "+roster.length+" · departed "+dep+" · absent "+abs);
+    } else line("   No roster data on this device yet.");
+    line("");
+    var hc=Array.isArray(b.heatCas)?b.heatCas:[], strokes=hc.filter(function(x){ return x&&x.type==="Heat stroke"; }).length;
+    line("2. SAFETY & HEAT");
+    line("   Heat casualties (camp total): "+hc.length+(strokes?" ("+strokes+" HEAT STROKE)":""));
+    hc.forEach(function(x){ line("     "+((x.time||"").toString().trim()||"----")+" "+((x.name||"").toString().trim()||"(unnamed)")+" — "+(x.type||"")+((x.action||"").toString().trim()?": "+x.action.toString().trim():"")); });
+    line("");
+    var inc=(Array.isArray(b.incidents)?b.incidents.slice():[]).sort(function(x,y){ return aarIncKey(x.time)-aarIncKey(y.time); });
+    var medical=inc.filter(function(r){ return /medical/i.test(String(r.type||"")); }).length;
+    var closed=inc.filter(function(r){ return String(r.status)==="Closed"; }).length;
+    line("3. INCIDENTS (camp total "+inc.length+")");
+    line("   Medical: "+medical+" · open: "+(inc.length-closed)+" · closed: "+closed);
+    inc.forEach(function(r,i){ line("   "+(i+1)+". "+((r.time||"").toString().trim()||"----")+" — "+((r.type||"").toString().trim()||"(untyped)")+((r.remarks||"").toString().trim()?" — "+r.remarks.toString().trim():"")+((r.medic||"").toString().trim()?"  · medic: "+r.medic.toString().trim():"")); });
+    line("");
+    var sr=Array.isArray(b.supplyRequests)?b.supplyRequests:[], filled=sr.filter(function(r){ return r&&r.status==="Filled"; }).length;
+    var gl=Array.isArray(b.gsas)?b.gsas:[];
+    var siWith=(Array.isArray(b.sensitive)?b.sensitive:[]).filter(function(it){ return (+it.qty||0)>0; });
+    var siOK=siWith.length?siWith.every(function(it){ return (+it.oh||0)===(+it.qty||0); }):null;
+    var siQ=siWith.reduce(function(a,it){ return a+(+it.qty||0); },0);
+    line("4. LOGISTICS");
+    line("   Supply requests: "+sr.length+" ("+filled+" filled / "+(sr.length-filled)+" open)");
+    line("   "+String(b.gsaLabel||"GSAs").toUpperCase()+": "+gl.length);
+    if(siWith.length) line("   Sensitive items: "+(siOK?"ALL ACCOUNTED ("+siQ+")":"DISCREPANCY")+(b.siCheck?" · last check "+b.siCheck:""));
+    line("");
+    line("Note: the day-by-day arc and command narrative are maintained on the TOC board.");
+    return L.join("\n");
+  }
+  function openCampAar(){ if(!state.board){ toast("Connect first — no board yet.",true); return; } $("campAarOut").textContent=campAarText(); $("campAar").classList.remove("hide"); }
+  function closeCampAar(){ $("campAar").classList.add("hide"); }
+  $("btnCampAar").addEventListener("click",openCampAar);
+  $("campAarClose").addEventListener("click",closeCampAar);
+  $("campAarCopy").addEventListener("click",function(){ copyText(campAarText(),function(){ toast("Camp AAR copied ✓"); }); });
+  $("campAarDl").addEventListener("click",function(){
+    try{ var d0=new Date(), stamp=d0.getFullYear()+pad(d0.getMonth()+1)+pad(d0.getDate())+"-"+pad(d0.getHours())+pad(d0.getMinutes());
+      var safe=((state.board&&state.board.campName)||"camp").replace(/[^a-z0-9]+/gi,"-").replace(/^-+|-+$/g,"").toLowerCase()||"camp";
+      var blob=new Blob([campAarText()],{type:"text/plain"}), a=document.createElement("a");
+      a.href=URL.createObjectURL(blob); a.download=safe+"-CAMP-AAR-"+stamp+".txt"; document.body.appendChild(a); a.click();
+      setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },0);
+    }catch(e){ toast("Download failed — try Copy.",true); }
+  });
   $("encList").addEventListener("click",function(e){ var b=e.target&&(e.target.classList.contains("nt-del")?e.target:null); if(!b) return;
     var id=b.getAttribute("data-encdel"); saveEnc(loadEnc().filter(function(n){ return n.id!==id; })); renderEnc(); });
 
