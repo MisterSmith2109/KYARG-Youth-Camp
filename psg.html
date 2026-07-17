@@ -529,7 +529,8 @@
     <div class="field"><label>Sustain — what went well</label><textarea id="paSustain" rows="3" placeholder="what worked; keep doing this"></textarea></div>
     <div class="field"><label>Improve — what to change</label><textarea id="paImprove" rows="3" placeholder="what to fix or do differently next time"></textarea></div>
     <div class="field"><label>Recommendations</label><textarea id="paRec" rows="2" placeholder="recommendations for next year"></textarea></div>
-    <div style="display:flex;gap:8px"><button class="primary" id="paCopy" style="margin-top:0">Copy</button><button class="primary" id="paDl" style="margin-top:0;background:var(--panel-2);color:var(--ink);border-color:var(--line)">Download</button></div>
+    <button class="primary" id="paSend">Send to TOC</button>
+    <div style="display:flex;gap:8px;margin-top:8px"><button class="primary" id="paCopy" style="margin-top:0;background:var(--panel-2);color:var(--ink);border-color:var(--line)">Copy</button><button class="primary" id="paDl" style="margin-top:0;background:var(--panel-2);color:var(--ink);border-color:var(--line)">Download</button></div>
     <div style="text-align:center;margin-top:10px"><button class="linkbtn" id="paClose">Done</button></div>
   </div>
 </div>
@@ -1370,8 +1371,21 @@
   function openPlatoonAar(){ var o=loadPaar(); PAAR_FIELDS.forEach(function(f){ var el=$(f[0]); if(el) el.value=o[f[1]]||""; }); $("platoonAar").classList.remove("hide"); }
   function closePlatoonAar(){ $("platoonAar").classList.add("hide"); }
   function paarInput(){ var o={}; PAAR_FIELDS.forEach(function(f){ var el=$(f[0]); o[f[1]]=el?el.value:""; }); savePaar(o); }
+  function sendPlatoonAar(){
+    if(!state.url){ toast("Not connected — can't send.",true); return; }
+    if(!state.board){ toast("Still loading the board — try again.",true); return; }
+    paarInput(); var o=loadPaar();
+    if(!String(o.sustain||"").trim() && !String(o.improve||"").trim()){ toast("Add at least Sustain or Improve first.",true); return; }
+    var now=Date.now(), c=campNow();
+    var id="paar-"+String(state.platoon||"platoon").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")||"paar-platoon";
+    var rec={ id:id, platoon:state.platoon||"", sig:o.sig||"", sustain:o.sustain||"", improve:o.improve||"", rec:o.rec||"", time:pad(c.h)+":"+pad(c.m), _m:now };
+    var board=snapshotWith("psgAars", rec); state.board=board; saveBoardCache();
+    queueSend(board, rec, "aar", "Platoon AAR");
+    toast("Platoon AAR sent to TOC ✓");
+  }
   $("btnPlatoonAar").addEventListener("click",openPlatoonAar);
   $("paClose").addEventListener("click",closePlatoonAar);
+  $("paSend").addEventListener("click",sendPlatoonAar);
   PAAR_FIELDS.forEach(function(f){ var el=$(f[0]); if(el) el.addEventListener("input",paarInput); });
   $("paCopy").addEventListener("click",function(){ paarInput(); copyText(paarText(),"Platoon AAR copied ✓"); });
   $("paDl").addEventListener("click",function(){

@@ -245,6 +245,16 @@
   .dc-table tr.dc-win td.dc-comb{color:var(--green)}
   .dc-badge{display:inline-block;font-family:var(--mono);font-size:9px;font-weight:800;letter-spacing:.06em;padding:1px 6px;border-radius:20px;background:var(--green);color:#0f1a0e;margin-left:6px;vertical-align:middle}
   .dc-empty{font-size:13px;color:var(--muted);font-style:italic;padding:10px 2px}
+  /* platoon AARs */
+  .paar-card{border:1px solid var(--line-soft);border-radius:10px;padding:12px 14px;margin-top:10px;background:var(--panel-2)}
+  .paar-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:2px}
+  .paar-plt{font-weight:800;font-size:15px}
+  .paar-when{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .paar-sec{margin-top:8px}
+  .paar-k{font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:800}
+  .paar-k.sustain{color:var(--green)} .paar-k.improve{color:var(--amber)}
+  .paar-txt{font-size:13px;white-space:pre-wrap;word-wrap:break-word;margin-top:2px;line-height:1.45;color:var(--ink)}
+  .paar-empty{font-size:13px;color:var(--muted);font-style:italic;padding:8px 2px}
   .dc-cad-h{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--olive-bright);font-weight:800;margin:20px 0 2px;padding-top:14px;border-top:1px solid var(--line)}
   .dc-table td.dc-cadwin{background:rgba(95,210,87,.12);color:var(--green)}
   .bk-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
@@ -1034,6 +1044,15 @@
       </div>
       <div id="dcTally"></div>
       <div id="dcCadence"></div>
+    </div>
+  </div>
+
+  <!-- PLATOON AARs (submitted from the PSG page) -->
+  <div class="panel" id="paarPanel">
+    <div class="panel-head"><h2>Platoon AARs</h2><div class="head-right"><span class="si-chip" id="paarChip"></span></div></div>
+    <div class="panel-body">
+      <div class="panel-sub">After-action reviews submitted by the platoon sergeants from the PSG page &mdash; what went well and what to change. Read-only here; they&rsquo;re also rolled into the <b>Camp AAR</b>.</div>
+      <div id="paarList"></div>
     </div>
   </div>
 
@@ -3503,6 +3522,7 @@ var qrcode = function() {
     supplyRequests:[],
     rfis:[],
     dcScores:[],  // Drill & Ceremony competition scores (one record per judge×platoon; written by dc.html, read here)
+    psgAars:[],   // platoon after-action reviews submitted from the PSG page (one record per platoon)
     campLog:[],   // end-of-day snapshots for the end-of-camp AAR (TOC-computer local; see applyRemote)
     campAar:{datesLabel:"", prepBy:"", summary:"", sustain:"", improve:"", rec:""},
     roster:[],
@@ -3521,6 +3541,7 @@ var qrcode = function() {
     if(!Array.isArray(st.heatCas)) st.heatCas=[];
     if(!Array.isArray(st.supplyRequests)) st.supplyRequests=[];
     if(!Array.isArray(st.dcScores)) st.dcScores=[];
+    if(!Array.isArray(st.psgAars)) st.psgAars=[];
     if(!Array.isArray(st.campLog)) st.campLog=[];
     if(!st.campAar||typeof st.campAar!=="object") st.campAar=defaults().campAar;
     else st.campAar=Object.assign(defaults().campAar, st.campAar);
@@ -3787,6 +3808,22 @@ var qrcode = function() {
     if(btn) btn.disabled=false;
     try{ const qr=qrcode(0,"L"); qr.addData(link); qr.make(); box.innerHTML=qr.createSvgTag(4,2); }
     catch(e){ box.innerHTML=""; }
+  }
+  // ---------- platoon AARs (submitted from the PSG page) ----------
+  function psgAarsSorted(){ return (state.psgAars||[]).slice().sort((a,b)=>String(a.platoon||"").localeCompare(String(b.platoon||""))); }
+  function renderPaar(){
+    const box=$("paarList"); if(!box) return;
+    const list=psgAarsSorted();
+    const chip=$("paarChip"); if(chip){ chip.textContent=list.length?(list.length+" submitted"):"none"; chip.className="si-chip"+(list.length?" ok":" none"); }
+    if(!list.length){ box.innerHTML='<div class="paar-empty">No platoon AARs yet. PSGs submit them from the PSG page &rarr; Platoon AAR &rarr; Send to TOC.</div>'; return; }
+    box.innerHTML=list.map(r=>{
+      const sec=(cls,label,val)=>{ val=String(val||"").trim(); return val?'<div class="paar-sec"><div class="paar-k '+cls+'">'+label+'</div><div class="paar-txt">'+esc(val)+'</div></div>':""; };
+      return '<div class="paar-card"><div class="paar-h"><span class="paar-plt">'+esc(r.platoon||"(platoon)")+'</span><span class="paar-when">'+esc(r.time||"")+'</span></div>'+
+        sec("","Significant activities",r.sig)+
+        sec("sustain","Sustain — what went well",r.sustain)+
+        sec("improve","Improve — what to change",r.improve)+
+        sec("","Recommendations",r.rec)+'</div>';
+    }).join("");
   }
   // ---------- D&C competition tally ----------
   const DC_GROUPS=[
@@ -4750,7 +4787,7 @@ var qrcode = function() {
     });
   }
 
-  function renderAll(){ renderTiles(); renderPer(); renderSensitive(); renderGsa(); renderHeatCas(); renderSupply(); renderRfis(); renderInc(); renderRoster(); renderDtabs(); renderPtabs(); renderSchedule(); renderHeat(); renderDc(); }
+  function renderAll(){ renderTiles(); renderPer(); renderSensitive(); renderGsa(); renderHeatCas(); renderSupply(); renderRfis(); renderInc(); renderRoster(); renderDtabs(); renderPtabs(); renderSchedule(); renderHeat(); renderDc(); renderPaar(); }
  
   // ---------- events ----------
   // header + tile fields
@@ -5366,6 +5403,16 @@ var qrcode = function() {
     [["7","SUSTAIN (what went well across camp)","sustain"],["8","IMPROVE (what to fix for next year)","improve"],["9","RECOMMENDATIONS / REMARKS","rec"]].forEach(x=>{
       line(x[0]+". "+x[1]); line("   "+(String(ca[x[2]]||"").trim()||"(none)")); line("");
     });
+    if((state.psgAars||[]).length){
+      line("10. PLATOON AARs (submitted from the field)");
+      psgAarsSorted().forEach(r=>{
+        line("   "+(String(r.platoon||"(platoon)").toUpperCase())+(r.time?" · "+r.time:""));
+        [["Significant","sig"],["Sustain","sustain"],["Improve","improve"],["Rec","rec"]].forEach(f=>{
+          const v=String(r[f[1]]||"").trim(); if(v) line("     "+f[0]+": "+v.replace(/\r?\n/g,"; "));
+        });
+      });
+      line("");
+    }
     line("Prepared by: ______________________________");
     return L.join("\n");
   }
@@ -5426,6 +5473,14 @@ var qrcode = function() {
     h+=narr("7","Sustain","sustain","What went well across the whole camp — keep doing this.");
     h+=narr("8","Improve","improve","What to fix or do differently next year.");
     h+=narr("9","Recommendations / remarks","rec","Recommendations for next year's planning, resourcing, schedule, etc.");
+    // 10 — platoon AARs submitted from the field
+    if((state.psgAars||[]).length){
+      const paSec=(cls,label,val)=>{ val=String(val||"").trim(); return val?'<div class="aar-line"><span class="k">'+label+':</span> '+esc(val)+'</div>':""; };
+      h+='<section class="aar-sec"><h3><span class="aar-num">10</span>Platoon AARs (from the field)</h3><div class="aar-secbody">'+
+        psgAarsSorted().map(r=>'<div class="paar-card" style="margin-top:8px"><div class="paar-h"><span class="paar-plt">'+esc(r.platoon||"(platoon)")+'</span><span class="paar-when">'+esc(r.time||"")+'</span></div>'+
+          paSec("","Significant",r.sig)+paSec("","Sustain",r.sustain)+paSec("","Improve",r.improve)+paSec("","Recommendations",r.rec)+'</div>').join("")+
+        '</div></section>';
+    }
     h+='<div class="aar-prepared">Generated '+esc(hhmmLocal())+' local'+(String(ca.prepBy||"").trim()?" &middot; "+esc(ca.prepBy.trim()):"")+'</div>';
     doc.innerHTML=h;
     doc.querySelectorAll('.aar-narr textarea').forEach(autoGrowRm);
