@@ -117,10 +117,11 @@
   .acct-name{font-size:15px;font-weight:600}
   .acct-role{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
   .acct-seg{display:flex;gap:4px;flex:none}
-  .acct-b{font-family:var(--mono);font-size:11px;font-weight:800;letter-spacing:.03em;padding:0 8px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--muted);min-width:42px;min-height:42px}
+  .acct-b{font-family:var(--mono);font-size:11px;font-weight:800;letter-spacing:.02em;padding:0 6px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--muted);min-width:40px;min-height:42px}
   .acct-b.on.in{background:var(--green);color:#0f1a0e;border-color:var(--green)}
   .acct-b.on.off{background:#5a9bb5;color:#04141b;border-color:#5a9bb5}
   .acct-b.on.out{background:var(--amber);color:#241a05;border-color:var(--amber)}
+  .acct-b.on.dep{background:#5a5560;color:#e9ead9;border-color:#6b6675}
   #acctList{max-height:52vh;overflow-y:auto;margin-bottom:12px}
   /* platoon roster list */
   .ros-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line-soft)}
@@ -1316,7 +1317,7 @@
     return people;
   }
   function acctStatusOf(r){ return acctState[r.id] || (String(r.status||"").trim()||"Out"); }
-  function acctKey(s){ s=String(s||"").toLowerCase(); return s==="in"?"in":(s==="off-site"||s==="offsite")?"off":"out"; }
+  function acctKey(s){ s=String(s||"").toLowerCase(); return s==="in"?"in":(s==="off-site"||s==="offsite")?"off":(s==="departed")?"dep":"out"; }
   function renderAcct(){
     var list=$("acctList"); if(!list) return;
     var people=acctPeople(), present=0;
@@ -1326,9 +1327,10 @@
       var row=document.createElement("div"); row.className="acct-row";
       row.innerHTML='<div class="acct-main"><div class="acct-name">'+esc(r.name)+'</div>'+(r.role?'<div class="acct-role">'+esc(r.role)+'</div>':'')+'</div>'+
         '<div class="acct-seg">'+
-          '<button class="acct-b in'+(k==="in"?" on":"")+'" data-acct="'+esc(r.id)+'" data-st="In">IN</button>'+
-          '<button class="acct-b off'+(k==="off"?" on":"")+'" data-acct="'+esc(r.id)+'" data-st="Off-site">OFF</button>'+
+          '<button class="acct-b in'+(k==="in"?" on":"")+'" data-acct="'+esc(r.id)+'" data-st="In" title="On ground">IN</button>'+
+          '<button class="acct-b off'+(k==="off"?" on":"")+'" data-acct="'+esc(r.id)+'" data-st="Off-site" title="Off-site — accounted, off property">OFF</button>'+
           '<button class="acct-b out'+(k==="out"?" on":"")+'" data-acct="'+esc(r.id)+'" data-st="Out">OUT</button>'+
+          '<button class="acct-b dep'+(k==="dep"?" on":"")+'" data-acct="'+esc(r.id)+'" data-st="Departed" title="Departed — left camp for good">DEP</button>'+
         '</div>';
       list.appendChild(row);
     });
