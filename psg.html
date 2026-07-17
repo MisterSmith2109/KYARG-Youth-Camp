@@ -1310,7 +1310,7 @@
     var closed=inc.filter(function(r){ return String(r.status)==="Closed"; }).length;
     line("3. INCIDENTS (camp total "+inc.length+")");
     line("   Medical: "+medical+" · open: "+(inc.length-closed)+" · closed: "+closed);
-    inc.forEach(function(r,i){ line("   "+(i+1)+". "+((r.time||"").toString().trim()||"----")+" — "+((r.type||"").toString().trim()||"(untyped)")+((r.remarks||"").toString().trim()?" — "+r.remarks.toString().trim():"")+((r.medic||"").toString().trim()?"  · medic: "+r.medic.toString().trim():"")); });
+    line("   (full incident log is on the TOC board.)");
     line("");
     var sr=Array.isArray(b.supplyRequests)?b.supplyRequests:[], filled=sr.filter(function(r){ return r&&r.status==="Filled"; }).length;
     var gl=Array.isArray(b.gsas)?b.gsas:[];
