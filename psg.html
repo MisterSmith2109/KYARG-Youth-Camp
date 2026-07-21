@@ -1375,7 +1375,7 @@
     if(!state.url){ toast("Not connected — can't send.",true); return; }
     if(!state.board){ toast("Still loading the board — try again.",true); return; }
     paarInput(); var o=loadPaar();
-    if(!String(o.sustain||"").trim() && !String(o.improve||"").trim()){ toast("Add at least Sustain or Improve first.",true); return; }
+    if(!String(o.sig||"").trim() && !String(o.sustain||"").trim() && !String(o.improve||"").trim() && !String(o.rec||"").trim()){ toast("Fill in your AAR first.",true); return; }
     var now=Date.now(), c=campNow();
     var id="paar-"+String(state.platoon||"platoon").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")||"paar-platoon";
     var rec={ id:id, platoon:state.platoon||"", sig:o.sig||"", sustain:o.sustain||"", improve:o.improve||"", rec:o.rec||"", time:pad(c.h)+":"+pad(c.m), _m:now };
