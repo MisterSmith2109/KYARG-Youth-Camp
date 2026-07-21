@@ -3810,7 +3810,10 @@ var qrcode = function() {
     catch(e){ box.innerHTML=""; }
   }
   // ---------- platoon AARs (submitted from the PSG page) ----------
-  function psgAarsSorted(){ return (state.psgAars||[]).slice().sort((a,b)=>String(a.platoon||"").localeCompare(String(b.platoon||""))); }
+  function psgAarsSorted(){ return (state.psgAars||[]).slice().sort((a,b)=>{
+    const p=String(a.platoon||"").localeCompare(String(b.platoon||"")); if(p!==0) return p;
+    return (+a._m||0)-(+b._m||0); // multiple AARs from the same platoon: oldest first
+  }); }
   function renderPaar(){
     const box=$("paarList"); if(!box) return;
     const list=psgAarsSorted();

@@ -1377,11 +1377,15 @@
     paarInput(); var o=loadPaar();
     if(!String(o.sig||"").trim() && !String(o.sustain||"").trim() && !String(o.improve||"").trim() && !String(o.rec||"").trim()){ toast("Fill in your AAR first.",true); return; }
     var now=Date.now(), c=campNow();
-    var id="paar-"+String(state.platoon||"platoon").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")||"paar-platoon";
+    // Unique id per submission — the platoon can send multiple AARs and each stands on its own (kept under the platoon, not the person).
+    var id="paar"+now.toString(36)+Math.random().toString(36).slice(2,6);
     var rec={ id:id, platoon:state.platoon||"", sig:o.sig||"", sustain:o.sustain||"", improve:o.improve||"", rec:o.rec||"", time:pad(c.h)+":"+pad(c.m), _m:now };
     var board=snapshotWith("psgAars", rec); state.board=board; saveBoardCache();
     queueSend(board, rec, "aar", "Platoon AAR");
-    toast("Platoon AAR sent to TOC ✓");
+    // clear the form so the next AAR starts fresh (the sent one is safely queued/synced)
+    PAAR_FIELDS.forEach(function(f){ var el=$(f[0]); if(el) el.value=""; });
+    savePaar({});
+    toast("Platoon AAR sent to TOC ✓ — cleared for the next");
   }
   $("btnPlatoonAar").addEventListener("click",openPlatoonAar);
   $("paClose").addEventListener("click",closePlatoonAar);
